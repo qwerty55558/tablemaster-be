@@ -2,6 +2,12 @@ spring:
   application:
     name: tablemaster
 
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
   datasource:
     url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
@@ -27,3 +33,20 @@ spring:
 
 server:
   port: 8080
+
+auth:
+  validation:
+    email:
+      max-length: 30
+    password:
+      min-length: 8
+      max-length: 30
+      require-uppercase: true
+      require-lowercase: true
+      require-number: true
+      require-special-char: true
+    name:
+      min-length: 2
+      max-length: 30
+    phone:
+      pattern: "^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$"
