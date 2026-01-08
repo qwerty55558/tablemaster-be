@@ -54,4 +54,52 @@ public class BusinessException extends RuntimeException {
     public static BusinessException passwordRequiresSpecialChar() {
         return new BusinessException("비밀번호에 특수문자를 포함해주세요", HttpStatus.BAD_REQUEST, "AUTH_010");
     }
+
+    // 로그인 관련 예외
+    public static BusinessException userNotFound() {
+        return new BusinessException("존재하지 않는 사용자입니다", HttpStatus.NOT_FOUND, "AUTH_011");
+    }
+
+    public static BusinessException invalidPassword() {
+        return new BusinessException("비밀번호가 일치하지 않습니다", HttpStatus.UNAUTHORIZED, "AUTH_012");
+    }
+
+    public static BusinessException invalidCredentials() {
+        return new BusinessException("이메일 또는 비밀번호가 올바르지 않습니다", HttpStatus.UNAUTHORIZED, "AUTH_013");
+    }
+
+    // 토큰 관련 예외
+    public static BusinessException invalidRefreshToken() {
+        return new BusinessException("유효하지 않은 Refresh Token입니다", HttpStatus.UNAUTHORIZED, "AUTH_014");
+    }
+
+    public static BusinessException expiredRefreshToken() {
+        return new BusinessException("만료된 Refresh Token입니다", HttpStatus.UNAUTHORIZED, "AUTH_015");
+    }
+
+    public static BusinessException revokedRefreshToken() {
+        return new BusinessException("폐기된 Refresh Token입니다", HttpStatus.UNAUTHORIZED, "AUTH_016");
+    }
+
+    // Rate Limiting 관련 예외
+    public static BusinessException tooManyLoginAttempts(int remainingSeconds) {
+        return new BusinessException(
+                "로그인 시도 횟수를 초과했습니다. " + remainingSeconds + "초 후에 다시 시도해주세요",
+                HttpStatus.TOO_MANY_REQUESTS,
+                "AUTH_017"
+        );
+    }
+
+    public static BusinessException tooManyRefreshAttempts() {
+        return new BusinessException(
+                "토큰 갱신 요청이 너무 많습니다. 잠시 후 다시 시도해주세요",
+                HttpStatus.TOO_MANY_REQUESTS,
+                "AUTH_018"
+        );
+    }
+
+    // 비밀번호 변경 관련 예외
+    public static BusinessException invalidCurrentPassword() {
+        return new BusinessException("현재 비밀번호가 일치하지 않습니다", HttpStatus.BAD_REQUEST, "AUTH_019");
+    }
 }
