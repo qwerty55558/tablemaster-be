@@ -40,3 +40,4 @@ out/
 # mcp settings
 opencode.json
 swagger-config.json
+.mcp.json

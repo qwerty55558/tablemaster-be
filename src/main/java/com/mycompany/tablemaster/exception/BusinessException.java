@@ -102,4 +102,17 @@ public class BusinessException extends RuntimeException {
     public static BusinessException invalidCurrentPassword() {
         return new BusinessException("현재 비밀번호가 일치하지 않습니다", HttpStatus.BAD_REQUEST, "AUTH_019");
     }
+
+    // 디바이스 인증 관련 예외
+    public static BusinessException invalidAppSecret() {
+        return new BusinessException("인증 정보가 올바르지 않습니다", HttpStatus.UNAUTHORIZED, "DEVICE_001");
+    }
+
+    public static BusinessException deviceNotFound() {
+        return new BusinessException("등록되지 않은 디바이스입니다", HttpStatus.UNAUTHORIZED, "DEVICE_002");
+    }
+
+    public static BusinessException deviceInactive() {
+        return new BusinessException("비활성화된 디바이스입니다", HttpStatus.UNAUTHORIZED, "DEVICE_003");
+    }
 }

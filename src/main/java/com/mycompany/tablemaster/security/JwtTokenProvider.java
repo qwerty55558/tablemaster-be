@@ -49,7 +49,7 @@ public class JwtTokenProvider {
         String jti = UUID.randomUUID().toString();
 
         return Jwts.builder()
-                .id(jti)  // JWT ID for blacklist
+                .id(jti)
                 .subject(String.valueOf(userId))
                 .claim("email", email)
                 .claim("name", name)
@@ -70,6 +70,45 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim("type", "refresh")
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    /**
+     * 디바이스용 Access Token 생성
+     */
+    public String createDeviceAccessToken(Long id, String deviceId, String deviceName) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + jwtProperties.getAccessTokenExpiration());
+
+        String jti = UUID.randomUUID().toString();
+
+        return Jwts.builder()
+                .id(jti)
+                .subject(String.valueOf(id))
+                .claim("deviceId", deviceId)
+                .claim("deviceName", deviceName)
+                .claim("roles", List.of("ROLE_DEVICE"))
+                .claim("type", "access")
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    /**
+     * 디바이스용 Refresh Token 생성
+     */
+    public String createDeviceRefreshToken(Long id, String deviceId) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + jwtProperties.getRefreshTokenExpiration());
+
+        return Jwts.builder()
+                .subject(String.valueOf(id))
+                .claim("deviceId", deviceId)
                 .claim("type", "refresh")
                 .issuedAt(now)
                 .expiration(expiry)
@@ -183,6 +222,20 @@ public class JwtTokenProvider {
     }
 
     /**
+     * 디바이스 토큰 여부 확인
+     */
+    public boolean isDeviceToken(String token) {
+        return getDeviceId(token) != null;
+    }
+
+    /**
+     * 토큰에서 디바이스 ID 추출
+     */
+    public String getDeviceId(String token) {
+        return getClaims(token).get("deviceId", String.class);
+    }
+
+    /**
      * Authentication 객체 생성 (Spring Security 연동)
      */
     public Authentication getAuthentication(String token) {
@@ -193,7 +246,6 @@ public class JwtTokenProvider {
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
 
-        // Principal로 userId 사용
         return new UsernamePasswordAuthenticationToken(userId, null, authorities);
     }
 

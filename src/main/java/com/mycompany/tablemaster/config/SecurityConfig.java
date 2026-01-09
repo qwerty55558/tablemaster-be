@@ -58,10 +58,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/config/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/api/v1/test/**").permitAll()  // 테스트용 (개발 환경)
 
                         // 역할별 접근 제어
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/staff/**").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers("/api/v1/device/**").hasRole("DEVICE")
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()

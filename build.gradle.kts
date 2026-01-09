@@ -40,6 +40,9 @@ dependencies {
 	
 	// Redis (Rate Limiting용)
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+	// RabbitMQ
+	implementation("org.springframework.boot:spring-boot-starter-amqp")
 	
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
@@ -51,6 +54,10 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType<JavaCompile> {
+	options.encoding = "UTF-8"
 }
 
 tasks.withType<Test> {
