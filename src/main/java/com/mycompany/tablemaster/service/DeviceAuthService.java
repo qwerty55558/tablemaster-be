@@ -35,6 +35,7 @@ public class DeviceAuthService {
     private final DeviceProperties deviceProperties;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final WebSocketSenderService webSocketSenderService;
 
     private static final String PENDING_KEY_PREFIX = "device:pending:";
     private static final long PENDING_TTL_SECONDS = 180; // 3분
@@ -171,6 +172,14 @@ public class DeviceAuthService {
         redisTemplate.expire(key, PENDING_TTL_SECONDS, TimeUnit.SECONDS);
 
         log.info("Device registration requested: {}", request.getDeviceId());
+
+        // 관리자에게 실시간 알림 전송
+        webSocketSenderService.sendToAdmins(Map.of(
+                "type", "DEVICE_REGISTRATION_REQUEST",
+                "deviceId", request.getDeviceId(),
+                "requestedAt", requestedAt,
+                "ttl", PENDING_TTL_SECONDS
+        ));
 
         return Map.of(
                 "status", "pending",

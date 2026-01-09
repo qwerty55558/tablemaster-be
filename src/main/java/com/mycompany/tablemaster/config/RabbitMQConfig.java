@@ -17,6 +17,7 @@ public class RabbitMQConfig {
     public static final String GIFT_EXCHANGE = "gift.exchange";
     public static final String CHAT_EXCHANGE = "chat.exchange";
     public static final String NOTIFICATION_EXCHANGE = "notification.exchange";
+    public static final String TABLE_EXCHANGE = "table.exchange";
     public static final String DLX_EXCHANGE = "dlx.exchange";
 
     // ============== Queue Names ==============
@@ -25,12 +26,14 @@ public class RabbitMQConfig {
     public static final String CHAT_MESSAGE_QUEUE = "chat.message.queue";
     public static final String NOTIFICATION_PUSH_QUEUE = "notification.push.queue";
     public static final String NOTIFICATION_INAPP_QUEUE = "notification.inapp.queue";
+    public static final String TABLE_RESET_QUEUE = "table.reset.queue";
     public static final String DLQ = "dead.letter.queue";
 
     // ============== Routing Keys ==============
     public static final String GIFT_PROCESS_KEY = "gift.process";
     public static final String GIFT_COMPLETE_KEY = "gift.complete";
     public static final String CHAT_MESSAGE_KEY = "chat.message";
+    public static final String TABLE_RESET_KEY = "table.reset";
 
     // ============== Exchanges ==============
 
@@ -47,6 +50,11 @@ public class RabbitMQConfig {
     @Bean
     public FanoutExchange notificationExchange() {
         return new FanoutExchange(NOTIFICATION_EXCHANGE);
+    }
+
+    @Bean
+    public DirectExchange tableExchange() {
+        return new DirectExchange(TABLE_EXCHANGE);
     }
 
     @Bean
@@ -97,6 +105,14 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue tableResetQueue() {
+        return QueueBuilder.durable(TABLE_RESET_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", "dlq")
+                .build();
+    }
+
+    @Bean
     public Queue deadLetterQueue() {
         return QueueBuilder.durable(DLQ).build();
     }
@@ -137,6 +153,13 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Binding tableResetBinding() {
+        return BindingBuilder.bind(tableResetQueue())
+                .to(tableExchange())
+                .with(TABLE_RESET_KEY);
+    }
+
+    @Bean
     public Binding dlqBinding() {
         return BindingBuilder.bind(deadLetterQueue())
                 .to(dlxExchange())
@@ -146,17 +169,22 @@ public class RabbitMQConfig {
     // ============== Message Converter ==============
 
     @Bean
-    @SuppressWarnings("removal")
-    public MessageConverter jsonMessageConverter() {
+    public ObjectMapper objectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        return objectMapper;
+    }
+
+    @Bean
+    @SuppressWarnings("removal")
+    public MessageConverter jsonMessageConverter(ObjectMapper objectMapper) {
         return new Jackson2JsonMessageConverter(objectMapper);
     }
 
     @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter messageConverter) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
-        rabbitTemplate.setMessageConverter(jsonMessageConverter());
+        rabbitTemplate.setMessageConverter(messageConverter);
         rabbitTemplate.setMandatory(true);
         return rabbitTemplate;
     }
