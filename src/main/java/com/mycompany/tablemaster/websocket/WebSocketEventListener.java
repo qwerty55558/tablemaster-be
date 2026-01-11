@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
+import java.time.Instant;
+import java.util.Map;
+
 /**
  * WebSocket 연결/해제 이벤트 리스너
  * Device와 User 모두 지원
@@ -40,23 +43,35 @@ public class WebSocketEventListener {
             return;
         }
 
+        Map<String, Object> attrs = accessor.getSessionAttributes();
+
         if ("DEVICE".equals(type)) {
-            handleDeviceConnected(id, sessionId);
+            handleDeviceConnected(id, sessionId, attrs);
         } else if ("USER".equals(type)) {
-            handleUserConnected(id, sessionId);
+            handleUserConnected(id, sessionId, attrs);
         }
     }
 
-    private void handleDeviceConnected(String deviceId, String sessionId) {
-        sessionRegistry.registerDeviceSession(deviceId, sessionId);
+    private void handleDeviceConnected(String deviceId, String sessionId, Map<String, Object> attrs) {
+        String jti = (String) attrs.get("jti");
+        Instant expiresAt = (Instant) attrs.get("expiresAt");
+
+        WebSocketSessionRegistry.SessionInfo info =
+                new WebSocketSessionRegistry.SessionInfo(sessionId, jti, expiresAt);
+        sessionRegistry.registerDeviceSession(deviceId, info);
         log.info("Device session connected: deviceId={}, sessionId={}", deviceId, sessionId);
 
         // 재접속 시 미전달 알림 전송
         notificationService.sendUndeliveredNotifications(deviceId);
     }
 
-    private void handleUserConnected(String userId, String sessionId) {
-        sessionRegistry.registerUserSession(userId, sessionId);
+    private void handleUserConnected(String userId, String sessionId, Map<String, Object> attrs) {
+        String jti = (String) attrs.get("jti");
+        Instant expiresAt = (Instant) attrs.get("expiresAt");
+
+        WebSocketSessionRegistry.SessionInfo info =
+                new WebSocketSessionRegistry.SessionInfo(sessionId, jti, expiresAt);
+        sessionRegistry.registerUserSession(userId, info);
         log.info("User session connected: userId={}, sessionId={}", userId, sessionId);
 
         // User도 필요시 미전달 알림 전송 가능 (현재는 생략)

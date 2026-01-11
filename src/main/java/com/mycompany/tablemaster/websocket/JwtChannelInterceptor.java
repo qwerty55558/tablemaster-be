@@ -62,19 +62,22 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             throw new MessagingException("Token has been revoked");
         }
 
+        // 만료시간 추출
+        java.time.Instant expiresAt = jwtTokenProvider.getExpiration(token).toInstant();
+
         // Device 토큰 vs User 토큰 구분
         String deviceId = jwtTokenProvider.getDeviceId(token);
 
         if (deviceId != null) {
             // Device 토큰
-            handleDeviceConnect(accessor, deviceId);
+            handleDeviceConnect(accessor, deviceId, jti, expiresAt);
         } else {
             // User 토큰
-            handleUserConnect(accessor, token);
+            handleUserConnect(accessor, token, jti, expiresAt);
         }
     }
 
-    private void handleDeviceConnect(StompHeaderAccessor accessor, String deviceId) {
+    private void handleDeviceConnect(StompHeaderAccessor accessor, String deviceId, String jti, java.time.Instant expiresAt) {
         // Principal 설정
         accessor.setUser(new DevicePrincipal(deviceId));
 
@@ -82,12 +85,14 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         if (accessor.getSessionAttributes() != null) {
             accessor.getSessionAttributes().put("type", "DEVICE");
             accessor.getSessionAttributes().put("id", deviceId);
+            accessor.getSessionAttributes().put("jti", jti);
+            accessor.getSessionAttributes().put("expiresAt", expiresAt);
         }
 
         log.info("WebSocket CONNECT [DEVICE]: deviceId={}", deviceId);
     }
 
-    private void handleUserConnect(StompHeaderAccessor accessor, String token) {
+    private void handleUserConnect(StompHeaderAccessor accessor, String token, String jti, java.time.Instant expiresAt) {
         Long userId = jwtTokenProvider.getUserId(token);
         List<String> roles = jwtTokenProvider.getRoles(token);
 
@@ -99,6 +104,8 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             accessor.getSessionAttributes().put("type", "USER");
             accessor.getSessionAttributes().put("id", String.valueOf(userId));
             accessor.getSessionAttributes().put("roles", roles);
+            accessor.getSessionAttributes().put("jti", jti);
+            accessor.getSessionAttributes().put("expiresAt", expiresAt);
         }
 
         log.info("WebSocket CONNECT [USER]: userId={}, roles={}", userId, roles);

@@ -1,9 +1,13 @@
 package com.mycompany.tablemaster.websocket;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,20 +19,35 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class WebSocketSessionRegistry {
 
-    private final ConcurrentHashMap<String, String> deviceSessions = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, String> userSessions = new ConcurrentHashMap<>();
+    @Data
+    @AllArgsConstructor
+    public static class SessionInfo {
+        private String sessionId;
+        private String jti;
+        private Instant expiresAt;
+    }
+
+    private final ConcurrentHashMap<String, SessionInfo> deviceSessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, SessionInfo> userSessions = new ConcurrentHashMap<>();
 
     // ========== Device 세션 관리 ==========
 
     /**
      * Device 세션 등록
      */
-    public void registerDeviceSession(String deviceId, String sessionId) {
-        String oldSession = deviceSessions.put(deviceId, sessionId);
+    public void registerDeviceSession(String deviceId, SessionInfo info) {
+        SessionInfo oldSession = deviceSessions.put(deviceId, info);
         if (oldSession != null) {
             log.info("Device reconnected, old session replaced: deviceId={}", deviceId);
         }
-        log.debug("Device session registered: deviceId={}, sessionId={}", deviceId, sessionId);
+        log.debug("Device session registered: deviceId={}, sessionId={}", deviceId, info.getSessionId());
+    }
+
+    /**
+     * 모든 Device 세션 조회
+     */
+    public Map<String, SessionInfo> getDeviceSessions() {
+        return Collections.unmodifiableMap(deviceSessions);
     }
 
     /**
@@ -58,12 +77,19 @@ public class WebSocketSessionRegistry {
     /**
      * User 세션 등록
      */
-    public void registerUserSession(String userId, String sessionId) {
-        String oldSession = userSessions.put(userId, sessionId);
+    public void registerUserSession(String userId, SessionInfo info) {
+        SessionInfo oldSession = userSessions.put(userId, info);
         if (oldSession != null) {
             log.info("User reconnected, old session replaced: userId={}", userId);
         }
-        log.debug("User session registered: userId={}, sessionId={}", userId, sessionId);
+        log.debug("User session registered: userId={}, sessionId={}", userId, info.getSessionId());
+    }
+
+    /**
+     * 모든 User 세션 조회
+     */
+    public Map<String, SessionInfo> getUserSessions() {
+        return Collections.unmodifiableMap(userSessions);
     }
 
     /**
@@ -111,20 +137,4 @@ public class WebSocketSessionRegistry {
         return userSessions.size();
     }
 
-    // ========== 하위 호환성 (기존 메서드) ==========
-
-    @Deprecated
-    public void registerSession(String deviceId, String sessionId) {
-        registerDeviceSession(deviceId, sessionId);
-    }
-
-    @Deprecated
-    public void removeSession(String deviceId) {
-        removeDeviceSession(deviceId);
-    }
-
-    @Deprecated
-    public boolean isConnected(String deviceId) {
-        return isDeviceConnected(deviceId);
-    }
 }
