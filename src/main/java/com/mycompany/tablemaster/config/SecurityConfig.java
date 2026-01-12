@@ -58,7 +58,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/config/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-                        .requestMatchers("/api/v1/test/**").permitAll()  // 테스트용 (개발 환경)
                         .requestMatchers("/ws/**").permitAll()  // WebSocket (인증은 STOMP 레벨에서 처리)
 
                         // 역할별 접근 제어

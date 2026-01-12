@@ -3,6 +3,7 @@ package com.mycompany.tablemaster.config;
 import com.mycompany.tablemaster.security.JwtTokenProvider;
 import com.mycompany.tablemaster.service.TokenBlacklistService;
 import com.mycompany.tablemaster.websocket.JwtChannelInterceptor;
+import com.mycompany.tablemaster.websocket.WebSocketSessionHandlerDecorator;
 import com.mycompany.tablemaster.websocket.WebSocketSessionRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -44,6 +46,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(
             new JwtChannelInterceptor(jwtTokenProvider, tokenBlacklistService, sessionRegistry)
+        );
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration.addDecoratorFactory(handler ->
+            new WebSocketSessionHandlerDecorator(handler, sessionRegistry)
         );
     }
 }

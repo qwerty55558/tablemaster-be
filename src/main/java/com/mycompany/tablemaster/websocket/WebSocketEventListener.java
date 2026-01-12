@@ -1,6 +1,7 @@
 package com.mycompany.tablemaster.websocket;
 
 import com.mycompany.tablemaster.service.NotificationService;
+import com.mycompany.tablemaster.service.WebSocketSenderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -23,6 +24,7 @@ public class WebSocketEventListener {
 
     private final WebSocketSessionRegistry sessionRegistry;
     private final NotificationService notificationService;
+    private final WebSocketSenderService webSocketSenderService;
 
     /**
      * 세션 연결 완료 이벤트
@@ -32,7 +34,12 @@ public class WebSocketEventListener {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
         String sessionId = accessor.getSessionId();
 
+        log.info("SessionConnectedEvent received: sessionId={}, sessionAttributes={}",
+                sessionId, accessor.getSessionAttributes());
+
         if (sessionId == null || accessor.getSessionAttributes() == null) {
+            log.warn("SessionConnectedEvent skipped: sessionId={}, hasAttributes={}",
+                    sessionId, accessor.getSessionAttributes() != null);
             return;
         }
 
@@ -40,6 +47,7 @@ public class WebSocketEventListener {
         String id = (String) accessor.getSessionAttributes().get("id");
 
         if (type == null || id == null) {
+            log.warn("SessionConnectedEvent skipped: type={}, id={}", type, id);
             return;
         }
 
@@ -63,6 +71,13 @@ public class WebSocketEventListener {
 
         // 재접속 시 미전달 알림 전송
         notificationService.sendUndeliveredNotifications(deviceId);
+
+        // Admin에게 Device 연결 알림
+        webSocketSenderService.sendToAdmins(Map.of(
+                "type", "DEVICE_CONNECTED",
+                "deviceId", deviceId,
+                "timestamp", Instant.now().toString()
+        ));
     }
 
     private void handleUserConnected(String userId, String sessionId, Map<String, Object> attrs) {
@@ -98,6 +113,13 @@ public class WebSocketEventListener {
         if ("DEVICE".equals(type)) {
             sessionRegistry.removeDeviceSession(id);
             log.info("Device session disconnected: deviceId={}", id);
+
+            // Admin에게 Device 해제 알림
+            webSocketSenderService.sendToAdmins(Map.of(
+                    "type", "DEVICE_DISCONNECTED",
+                    "deviceId", id,
+                    "timestamp", Instant.now().toString()
+            ));
         } else if ("USER".equals(type)) {
             sessionRegistry.removeUserSession(id);
             log.info("User session disconnected: userId={}", id);

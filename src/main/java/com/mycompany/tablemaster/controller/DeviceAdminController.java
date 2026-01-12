@@ -32,10 +32,10 @@ public class DeviceAdminController {
         return ResponseEntity.ok(deviceAuthService.getAllDevices());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{deviceId}")
     @Operation(summary = "디바이스 상세 조회", description = "특정 디바이스 정보 조회")
-    public ResponseEntity<DeviceResponse> getDevice(@PathVariable Long id) {
-        return ResponseEntity.ok(deviceAuthService.getDevice(id));
+    public ResponseEntity<DeviceResponse> getDevice(@PathVariable String deviceId) {
+        return ResponseEntity.ok(deviceAuthService.getDevice(deviceId));
     }
 
     @PostMapping
@@ -44,24 +44,24 @@ public class DeviceAdminController {
         return ResponseEntity.ok(deviceAuthService.registerDevice(request));
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping("/{deviceId}")
     @Operation(summary = "디바이스 수정", description = "디바이스 이름 수정")
     public ResponseEntity<DeviceResponse> updateDevice(
-            @PathVariable Long id,
+            @PathVariable String deviceId,
             @Valid @RequestBody DeviceRegisterRequest request) {
-        return ResponseEntity.ok(deviceAuthService.updateDevice(id, request));
+        return ResponseEntity.ok(deviceAuthService.updateDevice(deviceId, request));
     }
 
-    @PatchMapping("/{id}/toggle")
+    @PatchMapping("/{deviceId}/toggle")
     @Operation(summary = "디바이스 활성화/비활성화", description = "디바이스 활성화 상태 토글")
-    public ResponseEntity<DeviceResponse> toggleDeviceActive(@PathVariable Long id) {
-        return ResponseEntity.ok(deviceAuthService.toggleDeviceActive(id));
+    public ResponseEntity<DeviceResponse> toggleDeviceActive(@PathVariable String deviceId) {
+        return ResponseEntity.ok(deviceAuthService.toggleDeviceActive(deviceId));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{deviceId}")
     @Operation(summary = "디바이스 삭제", description = "디바이스를 화이트리스트에서 삭제")
-    public ResponseEntity<Map<String, Boolean>> deleteDevice(@PathVariable Long id) {
-        deviceAuthService.deleteDevice(id);
+    public ResponseEntity<Map<String, Boolean>> deleteDevice(@PathVariable String deviceId) {
+        deviceAuthService.deleteDevice(deviceId);
         return ResponseEntity.ok(Map.of("deleted", true));
     }
 

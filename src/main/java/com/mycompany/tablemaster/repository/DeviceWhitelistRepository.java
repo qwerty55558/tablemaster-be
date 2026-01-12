@@ -11,4 +11,5 @@ public interface DeviceWhitelistRepository extends JpaRepository<DeviceWhitelist
     Optional<DeviceWhitelist> findByDeviceId(String deviceId);
     Optional<DeviceWhitelist> findByDeviceIdAndIsActiveTrue(String deviceId);
     boolean existsByDeviceId(String deviceId);
+    void deleteByDeviceId(String deviceId);
 }

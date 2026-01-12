@@ -12,7 +12,9 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * STOMP 메시지 인터셉터
@@ -81,13 +83,16 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         // Principal 설정
         accessor.setUser(new DevicePrincipal(deviceId));
 
-        // 세션 속성 저장
-        if (accessor.getSessionAttributes() != null) {
-            accessor.getSessionAttributes().put("type", "DEVICE");
-            accessor.getSessionAttributes().put("id", deviceId);
-            accessor.getSessionAttributes().put("jti", jti);
-            accessor.getSessionAttributes().put("expiresAt", expiresAt);
+        // 세션 속성 저장 (null이면 생성)
+        Map<String, Object> attrs = accessor.getSessionAttributes();
+        if (attrs == null) {
+            attrs = new HashMap<>();
+            accessor.setSessionAttributes(attrs);
         }
+        attrs.put("type", "DEVICE");
+        attrs.put("id", deviceId);
+        attrs.put("jti", jti);
+        attrs.put("expiresAt", expiresAt);
 
         log.info("WebSocket CONNECT [DEVICE]: deviceId={}", deviceId);
     }
@@ -99,14 +104,17 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         // Principal 설정
         accessor.setUser(new UserPrincipal(userId, roles));
 
-        // 세션 속성 저장
-        if (accessor.getSessionAttributes() != null) {
-            accessor.getSessionAttributes().put("type", "USER");
-            accessor.getSessionAttributes().put("id", String.valueOf(userId));
-            accessor.getSessionAttributes().put("roles", roles);
-            accessor.getSessionAttributes().put("jti", jti);
-            accessor.getSessionAttributes().put("expiresAt", expiresAt);
+        // 세션 속성 저장 (null이면 생성)
+        Map<String, Object> attrs = accessor.getSessionAttributes();
+        if (attrs == null) {
+            attrs = new HashMap<>();
+            accessor.setSessionAttributes(attrs);
         }
+        attrs.put("type", "USER");
+        attrs.put("id", String.valueOf(userId));
+        attrs.put("roles", roles);
+        attrs.put("jti", jti);
+        attrs.put("expiresAt", expiresAt);
 
         log.info("WebSocket CONNECT [USER]: userId={}, roles={}", userId, roles);
     }

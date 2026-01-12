@@ -24,17 +24,8 @@ public class WebSocketSenderService {
      * 특정 디바이스에 알림 전송
      */
     public boolean sendToDevice(String deviceId, Object payload) {
-        if (!sessionRegistry.isDeviceConnected(deviceId)) {
-            log.debug("Device not connected, skipping WebSocket send: deviceId={}", deviceId);
-            return false;
-        }
-
         try {
-            messagingTemplate.convertAndSendToUser(
-                deviceId,
-                "/queue/notifications",
-                payload
-            );
+            messagingTemplate.convertAndSendToUser(deviceId, "/queue/notifications", payload);
             log.debug("Notification sent to device: deviceId={}", deviceId);
             return true;
         } catch (Exception e) {
@@ -47,16 +38,8 @@ public class WebSocketSenderService {
      * 특정 디바이스에 채팅 메시지 전송
      */
     public boolean sendChatToDevice(String deviceId, Object payload) {
-        if (!sessionRegistry.isDeviceConnected(deviceId)) {
-            return false;
-        }
-
         try {
-            messagingTemplate.convertAndSendToUser(
-                deviceId,
-                "/queue/chat",
-                payload
-            );
+            messagingTemplate.convertAndSendToUser(deviceId, "/queue/chat", payload);
             log.debug("Chat message sent to device: deviceId={}", deviceId);
             return true;
         } catch (Exception e) {
@@ -87,17 +70,8 @@ public class WebSocketSenderService {
      * 특정 User에게 알림 전송
      */
     public boolean sendToUser(String userId, Object payload) {
-        if (!sessionRegistry.isUserConnected(userId)) {
-            log.debug("User not connected, skipping WebSocket send: userId={}", userId);
-            return false;
-        }
-
         try {
-            messagingTemplate.convertAndSendToUser(
-                userId,
-                "/queue/notifications",
-                payload
-            );
+            messagingTemplate.convertAndSendToUser(userId, "/queue/notifications", payload);
             log.debug("Notification sent to user: userId={}", userId);
             return true;
         } catch (Exception e) {

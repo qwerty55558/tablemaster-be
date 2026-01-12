@@ -11,6 +11,7 @@ import com.mycompany.tablemaster.entity.DeviceWhitelist;
 import com.mycompany.tablemaster.exception.BusinessException;
 import com.mycompany.tablemaster.repository.DeviceWhitelistRepository;
 import com.mycompany.tablemaster.security.JwtTokenProvider;
+import com.mycompany.tablemaster.websocket.WebSocketSessionRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -36,6 +37,7 @@ public class DeviceAuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
     private final WebSocketSenderService webSocketSenderService;
+    private final WebSocketSessionRegistry sessionRegistry;
 
     private static final String PENDING_KEY_PREFIX = "device:pending:";
     private static final long PENDING_TTL_SECONDS = 180; // 3분
@@ -91,8 +93,8 @@ public class DeviceAuthService {
     }
 
     @Transactional(readOnly = true)
-    public DeviceResponse getDevice(Long id) {
-        DeviceWhitelist device = deviceWhitelistRepository.findById(id)
+    public DeviceResponse getDevice(String deviceId) {
+        DeviceWhitelist device = deviceWhitelistRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new BusinessException("디바이스를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "DEVICE_004"));
         return DeviceResponse.from(device);
     }
@@ -117,8 +119,8 @@ public class DeviceAuthService {
     }
 
     @Transactional
-    public DeviceResponse updateDevice(Long id, DeviceRegisterRequest request) {
-        DeviceWhitelist device = deviceWhitelistRepository.findById(id)
+    public DeviceResponse updateDevice(String deviceId, DeviceRegisterRequest request) {
+        DeviceWhitelist device = deviceWhitelistRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new BusinessException("디바이스를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "DEVICE_004"));
 
         device.setDeviceName(request.getDeviceName());
@@ -128,8 +130,8 @@ public class DeviceAuthService {
     }
 
     @Transactional
-    public DeviceResponse toggleDeviceActive(Long id) {
-        DeviceWhitelist device = deviceWhitelistRepository.findById(id)
+    public DeviceResponse toggleDeviceActive(String deviceId) {
+        DeviceWhitelist device = deviceWhitelistRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new BusinessException("디바이스를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "DEVICE_004"));
 
         device.setIsActive(!device.getIsActive());
@@ -139,10 +141,18 @@ public class DeviceAuthService {
     }
 
     @Transactional
-    public void deleteDevice(Long id) {
-        DeviceWhitelist device = deviceWhitelistRepository.findById(id)
+    public void deleteDevice(String deviceId) {
+        DeviceWhitelist device = deviceWhitelistRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new BusinessException("디바이스를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "DEVICE_004"));
 
+        // 1. 먼저 메시지 전송 (연결된 상태에서)
+        webSocketSenderService.sendToDevice(deviceId, Map.of(
+                "type", "DEVICE_DELETED",
+                "deviceId", deviceId,
+                "timestamp", java.time.Instant.now().toString()
+        ));
+
+        // 2. DB 삭제
         deviceWhitelistRepository.delete(device);
         log.info("Device deleted: {} ({})", device.getDeviceName(), device.getDeviceId());
     }

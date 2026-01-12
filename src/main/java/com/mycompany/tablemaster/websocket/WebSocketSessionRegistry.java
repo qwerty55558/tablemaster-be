@@ -4,7 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
@@ -29,6 +32,9 @@ public class WebSocketSessionRegistry {
 
     private final ConcurrentHashMap<String, SessionInfo> deviceSessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, SessionInfo> userSessions = new ConcurrentHashMap<>();
+
+    // WebSocket 세션 저장 (sessionId → WebSocketSession)
+    private final ConcurrentHashMap<String, WebSocketSession> webSocketSessions = new ConcurrentHashMap<>();
 
     // ========== Device 세션 관리 ==========
 
@@ -135,6 +141,64 @@ public class WebSocketSessionRegistry {
      */
     public int getConnectedUserCount() {
         return userSessions.size();
+    }
+
+    // ========== WebSocket 세션 관리 ==========
+
+    /**
+     * WebSocket 세션 등록
+     */
+    public void registerWebSocketSession(String sessionId, WebSocketSession session) {
+        webSocketSessions.put(sessionId, session);
+        log.debug("WebSocket session registered: sessionId={}", sessionId);
+    }
+
+    /**
+     * WebSocket 세션 제거
+     */
+    public void removeWebSocketSession(String sessionId) {
+        webSocketSessions.remove(sessionId);
+        log.debug("WebSocket session removed: sessionId={}", sessionId);
+    }
+
+    /**
+     * Device WebSocket 세션 강제 종료
+     */
+    public void closeDeviceSession(String deviceId) {
+        SessionInfo info = deviceSessions.get(deviceId);
+        if (info != null && info.getSessionId() != null) {
+            WebSocketSession session = webSocketSessions.get(info.getSessionId());
+            if (session != null && session.isOpen()) {
+                try {
+                    session.close(CloseStatus.NORMAL);
+                    log.info("WebSocket session closed for device: {}", deviceId);
+                } catch (IOException e) {
+                    log.warn("Failed to close WebSocket session for device: {}", deviceId, e);
+                }
+            }
+            webSocketSessions.remove(info.getSessionId());
+        }
+        deviceSessions.remove(deviceId);
+    }
+
+    /**
+     * User WebSocket 세션 강제 종료
+     */
+    public void closeUserSession(String userId) {
+        SessionInfo info = userSessions.get(userId);
+        if (info != null && info.getSessionId() != null) {
+            WebSocketSession session = webSocketSessions.get(info.getSessionId());
+            if (session != null && session.isOpen()) {
+                try {
+                    session.close(CloseStatus.NORMAL);
+                    log.info("WebSocket session closed for user: {}", userId);
+                } catch (IOException e) {
+                    log.warn("Failed to close WebSocket session for user: {}", userId, e);
+                }
+            }
+            webSocketSessions.remove(info.getSessionId());
+        }
+        userSessions.remove(userId);
     }
 
 }
