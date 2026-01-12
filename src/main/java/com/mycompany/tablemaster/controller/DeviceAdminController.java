@@ -4,6 +4,7 @@ import com.mycompany.tablemaster.dto.device.DeviceApproveRequest;
 import com.mycompany.tablemaster.dto.device.DevicePendingResponse;
 import com.mycompany.tablemaster.dto.device.DeviceRegisterRequest;
 import com.mycompany.tablemaster.dto.device.DeviceResponse;
+import com.mycompany.tablemaster.dto.device.DeviceUpdateRequest;
 import com.mycompany.tablemaster.service.DeviceAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,7 +49,7 @@ public class DeviceAdminController {
     @Operation(summary = "디바이스 수정", description = "디바이스 이름 수정")
     public ResponseEntity<DeviceResponse> updateDevice(
             @PathVariable String deviceId,
-            @Valid @RequestBody DeviceRegisterRequest request) {
+            @Valid @RequestBody DeviceUpdateRequest request) {
         return ResponseEntity.ok(deviceAuthService.updateDevice(deviceId, request));
     }
 

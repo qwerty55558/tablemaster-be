@@ -7,6 +7,7 @@ import com.mycompany.tablemaster.dto.device.DevicePendingRequest;
 import com.mycompany.tablemaster.dto.device.DevicePendingResponse;
 import com.mycompany.tablemaster.dto.device.DeviceRegisterRequest;
 import com.mycompany.tablemaster.dto.device.DeviceResponse;
+import com.mycompany.tablemaster.dto.device.DeviceUpdateRequest;
 import com.mycompany.tablemaster.entity.DeviceWhitelist;
 import com.mycompany.tablemaster.exception.BusinessException;
 import com.mycompany.tablemaster.repository.DeviceWhitelistRepository;
@@ -119,7 +120,7 @@ public class DeviceAuthService {
     }
 
     @Transactional
-    public DeviceResponse updateDevice(String deviceId, DeviceRegisterRequest request) {
+    public DeviceResponse updateDevice(String deviceId, DeviceUpdateRequest request) {
         DeviceWhitelist device = deviceWhitelistRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new BusinessException("디바이스를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "DEVICE_004"));
 
