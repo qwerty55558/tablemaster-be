@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -61,6 +62,8 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()  // WebSocket (인증은 STOMP 레벨에서 처리)
 
                         // 역할별 접근 제어
+                        // 디바이스 목록/상세 조회는 STAFF도 허용
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/devices", "/api/v1/admin/devices/*").hasAnyRole("STAFF", "ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/staff/**").hasAnyRole("STAFF", "ADMIN")
                         .requestMatchers("/api/v1/device/**").hasRole("DEVICE")
