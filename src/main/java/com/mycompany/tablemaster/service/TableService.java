@@ -3,11 +3,14 @@ package com.mycompany.tablemaster.service;
 import com.mycompany.tablemaster.dto.table.TableListResponse;
 import com.mycompany.tablemaster.dto.table.TableSetupRequest;
 import com.mycompany.tablemaster.dto.table.TableSetupResponse;
+import com.mycompany.tablemaster.dto.table.TableUpdateRequest;
 import com.mycompany.tablemaster.entity.TableEntity;
+import com.mycompany.tablemaster.entity.TableHistory;
 import com.mycompany.tablemaster.entity.TableStatus;
 import com.mycompany.tablemaster.event.TableEvent;
 import com.mycompany.tablemaster.exception.BusinessException;
 import com.mycompany.tablemaster.messaging.producer.TableEventProducer;
+import com.mycompany.tablemaster.repository.TableHistoryRepository;
 import com.mycompany.tablemaster.repository.TableRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +18,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,14 +30,15 @@ import java.util.stream.Collectors;
 public class TableService {
 
     private final TableRepository tableRepository;
+    private final TableHistoryRepository tableHistoryRepository;
     private final TableEventProducer tableEventProducer;
     private final WebSocketSenderService webSocketSenderService;
 
     /**
-     * 모든 테이블 조회
+     * 모든 활성 테이블 조회 (AVAILABLE 제외)
      */
     public List<TableListResponse> getAllTables() {
-        return tableRepository.findAll().stream()
+        return tableRepository.findByStatusNot(TableStatus.AVAILABLE).stream()
                 .map(TableListResponse::from)
                 .collect(Collectors.toList());
     }
@@ -40,10 +46,10 @@ public class TableService {
     /**
      * 테이블 상세 조회
      */
-    public TableSetupResponse getTable(String tableId) {
-        TableEntity table = tableRepository.findById(tableId)
+    public TableSetupResponse getTable(String deviceId) {
+        TableEntity table = tableRepository.findById(deviceId)
                 .orElseThrow(() -> new BusinessException(
-                        "테이블을 찾을 수 없습니다: " + tableId,
+                        "테이블을 찾을 수 없습니다: " + deviceId,
                         HttpStatus.NOT_FOUND,
                         "TABLE_001"
                 ));
@@ -51,10 +57,10 @@ public class TableService {
     }
 
     /**
-     * 디바이스 ID로 테이블 조회
+     * 디바이스 ID로 테이블 조회 (id = deviceId)
      */
     public TableSetupResponse getTableByDeviceId(String deviceId) {
-        TableEntity table = tableRepository.findByDeviceId(deviceId)
+        TableEntity table = tableRepository.findById(deviceId)
                 .orElseThrow(() -> new BusinessException(
                         "디바이스에 연결된 테이블이 없습니다",
                         HttpStatus.NOT_FOUND,
@@ -64,7 +70,20 @@ public class TableService {
     }
 
     /**
+     * 테이블명으로 OCCUPIED 상태인 테이블 조회 (채팅 요청용)
+     */
+    public TableEntity getOccupiedTableByName(String name) {
+        return tableRepository.findByNameAndStatus(name, TableStatus.OCCUPIED)
+                .orElseThrow(() -> new BusinessException(
+                        "해당 이름의 활성 테이블이 없습니다: " + name,
+                        HttpStatus.NOT_FOUND,
+                        "TABLE_005"
+                ));
+    }
+
+    /**
      * 테이블 설정 (입장 시)
+     * id(PK) = deviceId, name = tableId(앱에서 지정한 테이블명)
      */
     @Transactional
     public TableSetupResponse setupTable(TableSetupRequest request, String deviceId) {
@@ -77,74 +96,139 @@ public class TableService {
             );
         }
 
-        // 기존 테이블 확인 또는 새로 생성
-        TableEntity table = tableRepository.findById(request.getTableId())
+        // 기존 테이블 확인 또는 새로 생성 (id = deviceId)
+        TableEntity table = tableRepository.findById(deviceId)
                 .orElseGet(() -> TableEntity.builder()
-                        .id(request.getTableId())
+                        .id(deviceId)
                         .name(request.getTableId())
                         .build());
 
-        // 이미 사용 중인 테이블인지 확인
-        if (table.getStatus() == TableStatus.OCCUPIED &&
-            table.getDeviceId() != null &&
-            !table.getDeviceId().equals(deviceId)) {
-            throw new BusinessException(
-                    "이미 사용 중인 테이블입니다",
-                    HttpStatus.CONFLICT,
-                    "TABLE_004"
-            );
-        }
-
-        // 테이블 설정
+        // 테이블 설정 (name = tableId)
         table.setup(
+                request.getTableId(),
                 request.getLocation(),
                 request.getGuestCount(),
                 request.getFemaleCount(),
-                request.getMaleCount(),
-                deviceId
+                request.getMaleCount()
         );
 
         TableEntity savedTable = tableRepository.save(table);
-        log.info("Table setup completed: tableId={}, deviceId={}", savedTable.getId(), deviceId);
+        log.info("Table setup completed: id={}, name={}", savedTable.getId(), savedTable.getName());
 
-        // 테이블 업데이트 브로드캐스트
-        broadcastTableUpdate();
+        // 테이블 추가 브로드캐스트
+        broadcastTableAdded(savedTable);
 
         return TableSetupResponse.from(savedTable);
     }
 
     /**
-     * 테이블 초기화 (관리자용)
+     * 테이블 삭제 (히스토리로 이동 후 삭제)
      */
     @Transactional
-    public void resetTable(String tableId) {
-        TableEntity table = tableRepository.findById(tableId)
+    public void deleteTable(String deviceId) {
+        TableEntity table = tableRepository.findById(deviceId)
                 .orElseThrow(() -> new BusinessException(
-                        "테이블을 찾을 수 없습니다: " + tableId,
+                        "테이블을 찾을 수 없습니다: " + deviceId,
                         HttpStatus.NOT_FOUND,
                         "TABLE_001"
                 ));
 
-        String deviceId = table.getDeviceId();
+        // 히스토리에 저장
+        tableHistoryRepository.save(TableHistory.from(table));
 
-        // 테이블 초기화
-        table.reset();
-        tableRepository.save(table);
-        log.info("Table reset completed: tableId={}", tableId);
+        // 테이블 삭제
+        tableRepository.delete(table);
 
-        // RabbitMQ로 초기화 이벤트 발행
-        tableEventProducer.sendTableReset(TableEvent.reset(tableId, deviceId));
+        log.info("Table deleted and moved to history: deviceId={}", deviceId);
 
-        // 테이블 업데이트 브로드캐스트
-        broadcastTableUpdate();
+        // 삭제 이벤트 발행
+        tableEventProducer.sendTableDeleted(TableEvent.deleted(deviceId, deviceId));
+
+        // 테이블 삭제 브로드캐스트
+        broadcastTableRemoved(deviceId);
     }
 
     /**
-     * 테이블 목록 업데이트 브로드캐스트
+     * 테이블 수정
      */
-    public void broadcastTableUpdate() {
-        List<TableListResponse> tables = getAllTables();
-        webSocketSenderService.broadcast("tables", tables);
-        log.debug("Table update broadcasted: {} tables", tables.size());
+    @Transactional
+    public TableSetupResponse updateTable(String deviceId, TableUpdateRequest request) {
+        TableEntity table = tableRepository.findById(deviceId)
+                .orElseThrow(() -> new BusinessException(
+                        "테이블을 찾을 수 없습니다: " + deviceId,
+                        HttpStatus.NOT_FOUND,
+                        "TABLE_001"
+                ));
+
+        // 인원 정보 수정 (모두 제공된 경우에만 검증)
+        if (request.getGuestCount() != null && request.getFemaleCount() != null && request.getMaleCount() != null) {
+            if (request.getFemaleCount() + request.getMaleCount() != request.getGuestCount()) {
+                throw new BusinessException(
+                        "여성 인원과 남성 인원의 합이 총 인원과 일치하지 않습니다",
+                        HttpStatus.BAD_REQUEST,
+                        "TABLE_003"
+                );
+            }
+            table.setGuestCount(request.getGuestCount());
+            table.setFemaleCount(request.getFemaleCount());
+            table.setMaleCount(request.getMaleCount());
+        }
+
+        // 위치 수정
+        if (request.getLocation() != null) {
+            table.setLocation(request.getLocation());
+        }
+
+        // 채팅 상태 수정
+        if (request.getIsChatting() != null) {
+            table.setIsChatting(request.getIsChatting());
+        }
+
+        TableEntity savedTable = tableRepository.save(table);
+        log.info("Table updated: id={}", savedTable.getId());
+
+        // 테이블 수정 브로드캐스트
+        broadcastTableUpdated(savedTable);
+
+        return TableSetupResponse.from(savedTable);
+    }
+
+    /**
+     * 단일 테이블 추가 브로드캐스트
+     */
+    public void broadcastTableAdded(TableEntity table) {
+        Map<String, Object> payload = Map.of(
+                "type", "TABLE_ADDED",
+                "data", TableListResponse.from(table),
+                "timestamp", LocalDateTime.now().toString()
+        );
+        webSocketSenderService.broadcast("tables", payload);
+        log.debug("Table added broadcasted: id={}", table.getId());
+    }
+
+    /**
+     * 단일 테이블 수정 브로드캐스트
+     */
+    public void broadcastTableUpdated(TableEntity table) {
+        Map<String, Object> payload = Map.of(
+                "type", "TABLE_UPDATED",
+                "data", TableListResponse.from(table),
+                "timestamp", LocalDateTime.now().toString()
+        );
+        webSocketSenderService.broadcast("tables", payload);
+        log.debug("Table updated broadcasted: id={}", table.getId());
+    }
+
+    /**
+     * 단일 테이블 삭제 브로드캐스트
+     */
+    public void broadcastTableRemoved(String deviceId) {
+        Map<String, Object> payload = Map.of(
+                "type", "TABLE_REMOVED",
+                "id", deviceId,
+                "timestamp", LocalDateTime.now().toString()
+        );
+        webSocketSenderService.broadcast("tables", payload);
+        log.debug("Table removed broadcasted: id={}", deviceId);
     }
 }

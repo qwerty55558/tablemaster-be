@@ -3,6 +3,7 @@ package com.mycompany.tablemaster.controller;
 import com.mycompany.tablemaster.dto.table.TableListResponse;
 import com.mycompany.tablemaster.dto.table.TableSetupRequest;
 import com.mycompany.tablemaster.dto.table.TableSetupResponse;
+import com.mycompany.tablemaster.dto.table.TableUpdateRequest;
 import com.mycompany.tablemaster.service.TableService;
 import com.mycompany.tablemaster.websocket.DevicePrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,10 +33,10 @@ public class TableController {
         return ResponseEntity.ok(tableService.getAllTables());
     }
 
-    @GetMapping("/{tableId}")
+    @GetMapping("/{deviceId}")
     @Operation(summary = "테이블 상세 조회", description = "특정 테이블의 상세 정보를 조회합니다")
-    public ResponseEntity<TableSetupResponse> getTable(@PathVariable String tableId) {
-        return ResponseEntity.ok(tableService.getTable(tableId));
+    public ResponseEntity<TableSetupResponse> getTable(@PathVariable String deviceId) {
+        return ResponseEntity.ok(tableService.getTable(deviceId));
     }
 
     @GetMapping("/my")
@@ -55,10 +56,19 @@ public class TableController {
         return ResponseEntity.ok(tableService.setupTable(request, deviceId));
     }
 
-    @PostMapping("/{tableId}/reset")
-    @Operation(summary = "테이블 초기화", description = "테이블을 초기 상태로 리셋합니다 (관리자/스태프용)")
-    public ResponseEntity<Void> resetTable(@PathVariable String tableId) {
-        tableService.resetTable(tableId);
+    @PatchMapping("/{deviceId}")
+    @Operation(summary = "테이블 수정", description = "테이블 정보를 수정합니다 (인원, 위치, 채팅 상태)")
+    public ResponseEntity<TableSetupResponse> updateTable(
+            @PathVariable String deviceId,
+            @Valid @RequestBody TableUpdateRequest request
+    ) {
+        return ResponseEntity.ok(tableService.updateTable(deviceId, request));
+    }
+
+    @DeleteMapping("/{deviceId}")
+    @Operation(summary = "테이블 삭제", description = "테이블을 삭제합니다 (id에 postfix 붙여서 비활성화)")
+    public ResponseEntity<Void> deleteTable(@PathVariable String deviceId) {
+        tableService.deleteTable(deviceId);
         return ResponseEntity.ok().build();
     }
 }

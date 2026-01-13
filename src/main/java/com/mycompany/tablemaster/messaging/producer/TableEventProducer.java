@@ -14,11 +14,11 @@ public class TableEventProducer {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public void sendTableReset(TableEvent event) {
-        log.info("Sending table reset event: tableId={}, deviceId={}", event.tableId(), event.deviceId());
+    public void sendTableDeleted(TableEvent event) {
+        log.info("Sending table deleted event: tableId={}, deviceId={}", event.tableId(), event.deviceId());
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.TABLE_EXCHANGE,
-                RabbitMQConfig.TABLE_RESET_KEY,
+                RabbitMQConfig.TABLE_DELETED_KEY,
                 event
         );
     }

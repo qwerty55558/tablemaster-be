@@ -14,11 +14,11 @@ public record TableEvent(
         return new TableEvent(tableId, deviceId, TableEventType.SETUP, LocalDateTime.now());
     }
 
-    public static TableEvent reset(String tableId, String deviceId) {
-        return new TableEvent(tableId, deviceId, TableEventType.RESET, LocalDateTime.now());
-    }
-
     public static TableEvent updated(String tableId, String deviceId) {
         return new TableEvent(tableId, deviceId, TableEventType.UPDATED, LocalDateTime.now());
+    }
+
+    public static TableEvent deleted(String tableId, String deviceId) {
+        return new TableEvent(tableId, deviceId, TableEventType.DELETED, LocalDateTime.now());
     }
 }

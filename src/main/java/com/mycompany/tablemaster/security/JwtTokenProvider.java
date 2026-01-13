@@ -237,16 +237,27 @@ public class JwtTokenProvider {
 
     /**
      * Authentication 객체 생성 (Spring Security 연동)
+     * - 디바이스 토큰: DevicePrincipal (deviceId)
+     * - 사용자 토큰: UserPrincipal (userId)
      */
     public Authentication getAuthentication(String token) {
-        Long userId = getUserId(token);
         List<String> roles = getRoles(token);
 
         List<SimpleGrantedAuthority> authorities = roles.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
 
-        return new UsernamePasswordAuthenticationToken(userId, null, authorities);
+        // 디바이스 토큰이면 DevicePrincipal 사용
+        if (isDeviceToken(token)) {
+            String deviceId = getDeviceId(token);
+            DeviceAuthPrincipal principal = new DeviceAuthPrincipal(deviceId);
+            return new UsernamePasswordAuthenticationToken(principal, null, authorities);
+        }
+
+        // 사용자 토큰이면 UserAuthPrincipal 사용
+        Long userId = getUserId(token);
+        UserAuthPrincipal principal = new UserAuthPrincipal(userId);
+        return new UsernamePasswordAuthenticationToken(principal, null, authorities);
     }
 
     /**

@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class TableEntity {
 
     @Id
-    private String id;  // "A1", "B2" 등
+    private String id;  // deviceId (디바이스 고유 식별자 = PK)
 
     @Column(nullable = false)
     private String name;
@@ -33,7 +33,8 @@ public class TableEntity {
 
     private Integer maleCount;      // 남성 인원
 
-    private String deviceId;        // 연결된 디바이스 ID
+    @Column
+    private Long revenue = 0L;      // 매상
 
     @Column(nullable = false)
     private Boolean isChatting = false;
@@ -58,7 +59,7 @@ public class TableEntity {
     @Builder
     public TableEntity(String id, String name, TableStatus status, String location,
                        Integer guestCount, Integer femaleCount, Integer maleCount,
-                       String deviceId, Boolean isChatting) {
+                       Long revenue, Boolean isChatting) {
         this.id = id;
         this.name = name;
         this.status = status != null ? status : TableStatus.AVAILABLE;
@@ -66,33 +67,20 @@ public class TableEntity {
         this.guestCount = guestCount;
         this.femaleCount = femaleCount;
         this.maleCount = maleCount;
-        this.deviceId = deviceId;
+        this.revenue = revenue != null ? revenue : 0L;
         this.isChatting = isChatting != null ? isChatting : false;
     }
 
     /**
      * 테이블 설정 (입장 시)
      */
-    public void setup(String location, Integer guestCount, Integer femaleCount, Integer maleCount, String deviceId) {
+    public void setup(String name, String location, Integer guestCount, Integer femaleCount, Integer maleCount) {
+        this.name = name;
         this.location = location;
         this.guestCount = guestCount;
         this.femaleCount = femaleCount;
         this.maleCount = maleCount;
-        this.deviceId = deviceId;
         this.status = TableStatus.OCCUPIED;
-        this.isChatting = false;
-    }
-
-    /**
-     * 테이블 초기화 (리셋)
-     */
-    public void reset() {
-        this.location = null;
-        this.guestCount = null;
-        this.femaleCount = null;
-        this.maleCount = null;
-        this.deviceId = null;
-        this.status = TableStatus.AVAILABLE;
         this.isChatting = false;
     }
 

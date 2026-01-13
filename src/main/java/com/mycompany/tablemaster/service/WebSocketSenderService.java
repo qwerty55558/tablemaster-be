@@ -18,24 +18,52 @@ public class WebSocketSenderService {
     private final SimpMessagingTemplate messagingTemplate;
     private final WebSocketSessionRegistry sessionRegistry;
 
-    // ========== Device 전송 ==========
+    // ========== Device 경로별 전송 ==========
 
     /**
-     * 특정 디바이스에 알림 전송
+     * /queue/device - 디바이스 상태 (device_deleted, device_status)
      */
-    public boolean sendToDevice(String deviceId, Object payload) {
+    public boolean sendDeviceStatus(String deviceId, Object payload) {
         try {
-            messagingTemplate.convertAndSendToUser(deviceId, "/queue/notifications", payload);
-            log.debug("Notification sent to device: deviceId={}", deviceId);
+            messagingTemplate.convertAndSendToUser(deviceId, "/queue/device", payload);
+            log.debug("Device status sent: deviceId={}", deviceId);
             return true;
         } catch (Exception e) {
-            log.error("Failed to send notification to device: deviceId={}", deviceId, e);
+            log.error("Failed to send device status: deviceId={}", deviceId, e);
             return false;
         }
     }
 
     /**
-     * 특정 디바이스에 채팅 메시지 전송
+     * /queue/tables - 테이블 목록 (tables_update)
+     */
+    public boolean sendTablesUpdate(String deviceId, Object payload) {
+        try {
+            messagingTemplate.convertAndSendToUser(deviceId, "/queue/tables", payload);
+            log.debug("Tables update sent: deviceId={}", deviceId);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send tables update: deviceId={}", deviceId, e);
+            return false;
+        }
+    }
+
+    /**
+     * /queue/myTable - 내 테이블 (table_deleted, table_updated)
+     */
+    public boolean sendMyTableUpdate(String deviceId, Object payload) {
+        try {
+            messagingTemplate.convertAndSendToUser(deviceId, "/queue/myTable", payload);
+            log.debug("MyTable update sent: deviceId={}", deviceId);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send myTable update: deviceId={}", deviceId, e);
+            return false;
+        }
+    }
+
+    /**
+     * /queue/chat - 채팅 메시지
      */
     public boolean sendChatToDevice(String deviceId, Object payload) {
         try {
@@ -49,11 +77,34 @@ public class WebSocketSenderService {
     }
 
     /**
+     * /queue/notifications - 일반 알림 (토스트/팝업용)
+     */
+    public boolean sendToDevice(String deviceId, Object payload) {
+        try {
+            messagingTemplate.convertAndSendToUser(deviceId, "/queue/notifications", payload);
+            log.debug("Notification sent to device: deviceId={}", deviceId);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send notification to device: deviceId={}", deviceId, e);
+            return false;
+        }
+    }
+
+    /**
      * 모든 연결된 디바이스에 알림 전송
      */
     public void sendToAllDevices(Object payload) {
         for (String deviceId : sessionRegistry.getConnectedDevices()) {
             sendToDevice(deviceId, payload);
+        }
+    }
+
+    /**
+     * 모든 연결된 디바이스에 테이블 목록 전송
+     */
+    public void sendTablesUpdateToAll(Object payload) {
+        for (String deviceId : sessionRegistry.getConnectedDevices()) {
+            sendTablesUpdate(deviceId, payload);
         }
     }
 

@@ -28,6 +28,12 @@ public class TableListResponse {
     @Schema(description = "총 인원", example = "6")
     private Integer guestCount;
 
+    @Schema(description = "여성 인원", example = "3")
+    private Integer femaleCount;
+
+    @Schema(description = "남성 인원", example = "3")
+    private Integer maleCount;
+
     @Schema(description = "채팅 중 여부", example = "false")
     private Boolean isChatting;
 
@@ -41,6 +47,8 @@ public class TableListResponse {
                 .status(table.getStatus())
                 .location(table.getLocation())
                 .guestCount(table.getGuestCount())
+                .femaleCount(table.getFemaleCount())
+                .maleCount(table.getMaleCount())
                 .isChatting(table.getIsChatting())
                 .updatedAt(table.getUpdatedAt())
                 .build();

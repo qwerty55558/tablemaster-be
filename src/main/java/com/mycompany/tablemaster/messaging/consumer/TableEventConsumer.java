@@ -21,39 +21,33 @@ public class TableEventConsumer {
 
     private final WebSocketSenderService webSocketSenderService;
 
-    @RabbitListener(queues = RabbitMQConfig.TABLE_RESET_QUEUE)
-    public void handleTableReset(TableEvent event, Channel channel,
-                                  @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
+    @RabbitListener(queues = RabbitMQConfig.TABLE_DELETED_QUEUE)
+    public void handleTableDeleted(TableEvent event, Channel channel,
+                                   @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {
-            log.info("Processing table reset: tableId={}, deviceId={}",
+            log.info("Processing table deleted: tableId={}, deviceId={}",
                     event.tableId(), event.deviceId());
 
-            // 해당 디바이스에 초기화 메시지 전송
+            // 해당 디바이스에 삭제 메시지 전송 → /queue/myTable
             if (event.deviceId() != null) {
                 Map<String, Object> message = Map.of(
-                        "type", "table_reset",
+                        "type", "TABLE_DELETED",
                         "tableId", event.tableId(),
                         "timestamp", event.timestamp().toString()
                 );
 
-                boolean sent = webSocketSenderService.sendToDevice(event.deviceId(), message);
+                boolean sent = webSocketSenderService.sendMyTableUpdate(event.deviceId(), message);
                 if (sent) {
-                    log.info("Table reset message sent to device: {}", event.deviceId());
+                    log.info("Table deleted message sent to device: {}", event.deviceId());
                 } else {
-                    log.warn("Device not connected, table reset message not sent: {}", event.deviceId());
+                    log.warn("Device not connected, table deleted message not sent: {}", event.deviceId());
                 }
             }
 
-            // 테이블 목록 브로드캐스트
-            webSocketSenderService.broadcast("table_reset", Map.of(
-                    "tableId", event.tableId(),
-                    "timestamp", event.timestamp().toString()
-            ));
-
             channel.basicAck(deliveryTag, false);
-            log.info("Table reset processed successfully: {}", event.tableId());
+            log.info("Table deleted processed successfully: {}", event.tableId());
         } catch (Exception e) {
-            log.error("Failed to process table reset: {}", event.tableId(), e);
+            log.error("Failed to process table deleted: {}", event.tableId(), e);
             channel.basicNack(deliveryTag, false, false);
         }
     }

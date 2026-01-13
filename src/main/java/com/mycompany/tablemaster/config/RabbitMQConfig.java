@@ -26,14 +26,14 @@ public class RabbitMQConfig {
     public static final String CHAT_MESSAGE_QUEUE = "chat.message.queue";
     public static final String NOTIFICATION_PUSH_QUEUE = "notification.push.queue";
     public static final String NOTIFICATION_INAPP_QUEUE = "notification.inapp.queue";
-    public static final String TABLE_RESET_QUEUE = "table.reset.queue";
+    public static final String TABLE_DELETED_QUEUE = "table.deleted.queue";
     public static final String DLQ = "dead.letter.queue";
 
     // ============== Routing Keys ==============
     public static final String GIFT_PROCESS_KEY = "gift.process";
     public static final String GIFT_COMPLETE_KEY = "gift.complete";
     public static final String CHAT_MESSAGE_KEY = "chat.message";
-    public static final String TABLE_RESET_KEY = "table.reset";
+    public static final String TABLE_DELETED_KEY = "table.deleted";
 
     // ============== Exchanges ==============
 
@@ -105,8 +105,8 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Queue tableResetQueue() {
-        return QueueBuilder.durable(TABLE_RESET_QUEUE)
+    public Queue tableDeletedQueue() {
+        return QueueBuilder.durable(TABLE_DELETED_QUEUE)
                 .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
                 .withArgument("x-dead-letter-routing-key", "dlq")
                 .build();
@@ -153,10 +153,10 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding tableResetBinding() {
-        return BindingBuilder.bind(tableResetQueue())
+    public Binding tableDeletedBinding() {
+        return BindingBuilder.bind(tableDeletedQueue())
                 .to(tableExchange())
-                .with(TABLE_RESET_KEY);
+                .with(TABLE_DELETED_KEY);
     }
 
     @Bean
