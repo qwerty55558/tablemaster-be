@@ -39,6 +39,10 @@ public class TableEntity {
     @Column(nullable = false)
     private Boolean isChatting = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_status")
+    private TableStatus previousStatus;  // 비활성화 전 상태 저장
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -59,7 +63,7 @@ public class TableEntity {
     @Builder
     public TableEntity(String id, String name, TableStatus status, String location,
                        Integer guestCount, Integer femaleCount, Integer maleCount,
-                       Long revenue, Boolean isChatting) {
+                       Long revenue, Boolean isChatting, TableStatus previousStatus) {
         this.id = id;
         this.name = name;
         this.status = status != null ? status : TableStatus.AVAILABLE;
@@ -69,6 +73,7 @@ public class TableEntity {
         this.maleCount = maleCount;
         this.revenue = revenue != null ? revenue : 0L;
         this.isChatting = isChatting != null ? isChatting : false;
+        this.previousStatus = previousStatus;
     }
 
     /**
@@ -95,5 +100,34 @@ public class TableEntity {
     public void endChatting() {
         this.status = TableStatus.OCCUPIED;
         this.isChatting = false;
+    }
+
+    /**
+     * 디바이스 연결 해제 시 비활성화
+     */
+    public void deactivate() {
+        if (this.status != TableStatus.INACTIVE) {
+            this.previousStatus = this.status;
+            this.status = TableStatus.INACTIVE;
+        }
+    }
+
+    /**
+     * 디바이스 재연결 시 활성화 (이전 상태 복원)
+     */
+    public void activate() {
+        if (this.status == TableStatus.INACTIVE && this.previousStatus != null) {
+            this.status = this.previousStatus;
+            this.previousStatus = null;
+        } else if (this.status == TableStatus.INACTIVE) {
+            this.status = TableStatus.OCCUPIED;
+        }
+    }
+
+    /**
+     * 활성 상태인지 확인 (INACTIVE가 아닌 경우)
+     */
+    public boolean isActive() {
+        return this.status != TableStatus.INACTIVE;
     }
 }

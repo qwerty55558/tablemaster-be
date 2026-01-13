@@ -1,6 +1,7 @@
 package com.mycompany.tablemaster.websocket;
 
 import com.mycompany.tablemaster.service.NotificationService;
+import com.mycompany.tablemaster.service.TableService;
 import com.mycompany.tablemaster.service.WebSocketSenderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class WebSocketEventListener {
     private final WebSocketSessionRegistry sessionRegistry;
     private final NotificationService notificationService;
     private final WebSocketSenderService webSocketSenderService;
+    private final TableService tableService;
 
     /**
      * 세션 연결 완료 이벤트
@@ -68,6 +70,9 @@ public class WebSocketEventListener {
                 new WebSocketSessionRegistry.SessionInfo(sessionId, jti, expiresAt);
         sessionRegistry.registerDeviceSession(deviceId, info);
         log.info("Device session connected: deviceId={}, sessionId={}", deviceId, sessionId);
+
+        // 재접속 시 기존 테이블이 있으면 활성화
+        tableService.activateTable(deviceId);
 
         // 재접속 시 미전달 알림 전송
         notificationService.sendUndeliveredNotifications(deviceId);
@@ -113,6 +118,9 @@ public class WebSocketEventListener {
         if ("DEVICE".equals(type)) {
             sessionRegistry.removeDeviceSession(id);
             log.info("Device session disconnected: deviceId={}", id);
+
+            // 테이블 비활성화 (INACTIVE 상태로 변경)
+            tableService.deactivateTable(id);
 
             // Admin에게 Device 해제 알림
             webSocketSenderService.sendToAdmins(Map.of(

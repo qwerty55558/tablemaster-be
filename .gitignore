@@ -41,3 +41,8 @@ out/
 opencode.json
 swagger-config.json
 .mcp.json
+
+# Environment files
+.env
+.env.local
+.env.*.local

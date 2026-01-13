@@ -35,10 +35,10 @@ public class TableService {
     private final WebSocketSenderService webSocketSenderService;
 
     /**
-     * 모든 활성 테이블 조회 (AVAILABLE 제외)
+     * 모든 활성 테이블 조회 (AVAILABLE, INACTIVE 제외)
      */
     public List<TableListResponse> getAllTables() {
-        return tableRepository.findByStatusNot(TableStatus.AVAILABLE).stream()
+        return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.INACTIVE)).stream()
                 .map(TableListResponse::from)
                 .collect(Collectors.toList());
     }
@@ -230,5 +230,37 @@ public class TableService {
         );
         webSocketSenderService.broadcast("tables", payload);
         log.debug("Table removed broadcasted: id={}", deviceId);
+    }
+
+    /**
+     * 디바이스 연결 해제 시 테이블 비활성화
+     */
+    @Transactional
+    public void deactivateTable(String deviceId) {
+        tableRepository.findById(deviceId).ifPresent(table -> {
+            if (table.isActive()) {
+                table.deactivate();
+                TableEntity savedTable = tableRepository.save(table);
+                log.info("Table deactivated due to device disconnect: deviceId={}", deviceId);
+
+                broadcastTableUpdated(savedTable);
+            }
+        });
+    }
+
+    /**
+     * 디바이스 재연결 시 테이블 활성화
+     */
+    @Transactional
+    public void activateTable(String deviceId) {
+        tableRepository.findById(deviceId).ifPresent(table -> {
+            if (!table.isActive()) {
+                table.activate();
+                TableEntity savedTable = tableRepository.save(table);
+                log.info("Table activated due to device reconnect: deviceId={}", deviceId);
+
+                broadcastTableUpdated(savedTable);
+            }
+        });
     }
 }

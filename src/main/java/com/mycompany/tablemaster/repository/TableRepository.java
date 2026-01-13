@@ -30,4 +30,9 @@ public interface TableRepository extends JpaRepository<TableEntity, String> {
      * 특정 상태가 아닌 테이블 조회 (AVAILABLE 제외용)
      */
     List<TableEntity> findByStatusNot(TableStatus status);
+
+    /**
+     * 여러 상태를 제외한 테이블 조회 (AVAILABLE, INACTIVE 제외용)
+     */
+    List<TableEntity> findByStatusNotIn(List<TableStatus> statuses);
 }

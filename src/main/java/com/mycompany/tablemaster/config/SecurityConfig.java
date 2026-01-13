@@ -91,7 +91,8 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",   // Next.js 개발 서버
-                "http://localhost:8080"    // 로컬 테스트
+                "http://localhost:8080",   // 로컬 테스트
+                "http://localhost:5000"    // flutter web
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
