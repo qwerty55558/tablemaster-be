@@ -90,9 +90,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-                "http://localhost:3000",           // Next.js 개발 서버
-                "http://localhost:8080",           // 로컬 테스트
-                "http://localhost:5000",           // flutter web
+                "http://localhost:3000",   // Next.js 개발 서버
+                "http://localhost:8080",   // 로컬 테스트
+                "http://localhost:5000",   // flutter web
                 "https://clauminirockpt.tech",     // Production frontend
                 "https://app.clauminirockpt.tech"  // Production flutter app
         ));

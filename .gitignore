@@ -46,3 +46,15 @@ swagger-config.json
 .env
 .env.local
 .env.*.local
+
+# Deployment
+Dockerfile
+init.sql
+src/main/resources/application-prod.yaml
+
+# Claude/Tooling
+.claude/
+.cluadeignore
+tmpclaude-*
+nul
+package-lock.json
