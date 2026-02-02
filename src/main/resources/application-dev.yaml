@@ -37,7 +37,7 @@ jwt:
 
 # 디바이스 인증 시크릿 (개발용)
 device:
-  app-secret: dev-device-app-secret-key
+  app-secret: production-secret-key-must-be-changed
 
 # 로깅 설정
 logging:
