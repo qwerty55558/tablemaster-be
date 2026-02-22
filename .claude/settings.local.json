@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr:*)",
+      "Bash(npx:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(rd /s /q \"%LocalAppData%\\\\npm-cache\\\\_npx\\\\e23b069b9efbbb8f\")",
+      "Bash(tasklist:*)",
+      "mcp__db-server__query",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(git reset:*)",
+      "Bash(mvn compile:*)",
+      "Bash(.\\\\gradlew.bat compileJava:*)",
+      "Bash(cmd /c \"gradlew.bat compileJava\")",
+      "Bash(./gradlew bootRun:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker exec:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill /PID 16776 /F\")",
+      "Bash(./gradlew build:*)",
+      "Bash(docker buildx build:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git pull:*)",
+      "Bash(docker build:*)",
+      "Bash(docker push:*)",
+      "mcp__crawl4ai__get_markdown",
+      "mcp__crawl4ai__smart_crawl",
+      "WebFetch(domain:qwerty55558.github.io)",
+      "mcp__crawl4ai__crawl",
+      "mcp__crawl4ai__capture_screenshot"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "figma-dev-mode-mcp-server",
+    "firecrawl",
+    "db-server",
+    "swagger"
+  ]
+}

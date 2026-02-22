@@ -1,0 +1,82 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: tablemaster
+
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
+    template:
+      mandatory: true
+
+server:
+  port: 8080
+
+auth:
+  validation:
+    email:
+      max-length: 30
+    password:
+      min-length: 8
+      max-length: 30
+      require-uppercase: true
+      require-lowercase: true
+      require-number: true
+      require-special-char: true
+    name:
+      min-length: 2
+      max-length: 30
+    phone:
+      pattern: "^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$"
+
+# Device 인증 설정
+device:
+  app-secret: ${DEVICE_APP_SECRET:dev-device-secret-key-change-in-production}
+
+# SpringDoc OpenAPI 설정
+springdoc:
+  default-produces-media-type: application/json;charset=UTF-8
+
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:thisIsADevelopmentSecretKeyThatShouldBeAtLeast256BitsLong!}
+  access-token-expiration: 1800000    # 30분 (ms)
+  refresh-token-expiration: 1209600000  # 14일 (ms)

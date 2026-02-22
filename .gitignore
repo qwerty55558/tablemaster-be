@@ -4,7 +4,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-application.yaml
+#application.yaml
 
 ### STS ###
 .apt_generated
@@ -38,14 +38,14 @@ out/
 .vscode/
 
 # mcp settings
-opencode.json
-swagger-config.json
-.mcp.json
+#opencode.json
+#swagger-config.json
+#.mcp.json
 
 # Environment files
-.env
-.env.local
-.env.*.local
+#.env
+#.env.local
+#.env.*.local
 
 # Deployment
 Dockerfile
@@ -53,8 +53,8 @@ init.sql
 src/main/resources/application-prod.yaml
 
 # Claude/Tooling
-.claude/
-.cluadeignore
-tmpclaude-*
+#.claude/
+#.cluadeignore
+#tmpclaude-*
 nul
-package-lock.json
+#package-lock.json
