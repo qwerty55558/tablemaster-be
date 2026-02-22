@@ -8,5 +8,6 @@ public enum TableStatus {
     OCCUPIED,    // 사용 중
     RESERVED,    // 예약됨
     CHATTING,    // 채팅 중
-    INACTIVE     // 디바이스 연결 끊김 (임시 비활성)
+    INACTIVE,    // 디바이스 연결 끊김 (임시 비활성, 재연결 시 복원)
+    DELETED      // 디바이스/테이블 영구 삭제 (이력 보존, 복원 없음)
 }

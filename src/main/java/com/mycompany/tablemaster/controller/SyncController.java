@@ -2,7 +2,9 @@ package com.mycompany.tablemaster.controller;
 
 import com.mycompany.tablemaster.dto.sync.SyncRequest;
 import com.mycompany.tablemaster.dto.sync.SyncResponse;
+import com.mycompany.tablemaster.entity.TableStatus;
 import com.mycompany.tablemaster.service.SyncService;
+import com.mycompany.tablemaster.service.TableService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -19,6 +21,7 @@ import java.util.Map;
 public class SyncController {
 
     private final SyncService syncService;
+    private final TableService tableService;
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
@@ -63,6 +66,15 @@ public class SyncController {
                     Map.of("type", "SYNC_NOTIFICATIONS", "data", response.getNotifications())
             );
             log.debug("Sync: {} notifications sent to device {}", response.getNotifications().size(), deviceId);
+        }
+
+        // 재연결 시 활성 테이블이 있으면 웹 클라이언트에 브로드캐스트
+        if (response.getTable() != null) {
+            TableStatus status = response.getTable().getStatus();
+            if (status != TableStatus.AVAILABLE && status != TableStatus.INACTIVE && status != TableStatus.DELETED) {
+                tableService.broadcastTableAdded(deviceId);
+                log.debug("Sync: table broadcasted to web clients: deviceId={}, status={}", deviceId, status);
+            }
         }
 
         log.info("Sync completed: deviceId={}", deviceId);

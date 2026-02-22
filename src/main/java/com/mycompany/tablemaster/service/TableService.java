@@ -38,7 +38,7 @@ public class TableService {
      * 모든 활성 테이블 조회 (AVAILABLE, INACTIVE 제외)
      */
     public List<TableListResponse> getAllTables() {
-        return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.INACTIVE)).stream()
+        return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.INACTIVE, TableStatus.DELETED)).stream()
                 .map(TableListResponse::from)
                 .collect(Collectors.toList());
     }
@@ -194,6 +194,30 @@ public class TableService {
     }
 
     /**
+     * 재연결 시 테이블 상태 웹 브로드캐스트 (deviceId로 조회 후 전송, DELETED 제외)
+     */
+    public void broadcastTableAdded(String deviceId) {
+        tableRepository.findById(deviceId)
+                .filter(t -> t.getStatus() != TableStatus.DELETED)
+                .ifPresent(this::broadcastTableAdded);
+    }
+
+    /**
+     * 디바이스/테이블 영구 삭제 처리 (DELETED 상태로 변경 후 대시보드에서 제거)
+     */
+    @Transactional
+    public void markTableDeleted(String deviceId) {
+        tableRepository.findById(deviceId).ifPresent(table -> {
+            if (table.getStatus() != TableStatus.DELETED) {
+                table.markDeleted();
+                tableRepository.save(table);
+                log.info("Table marked as deleted: deviceId={}", deviceId);
+                broadcastTableRemoved(deviceId);
+            }
+        });
+    }
+
+    /**
      * 단일 테이블 추가 브로드캐스트
      */
     public void broadcastTableAdded(TableEntity table) {
@@ -259,7 +283,12 @@ public class TableService {
                 TableEntity savedTable = tableRepository.save(table);
                 log.info("Table activated due to device reconnect: deviceId={}", deviceId);
 
-                broadcastTableUpdated(savedTable);
+                if (savedTable.getStatus() == TableStatus.AVAILABLE) {
+                    // AVAILABLE로 복원된 경우 대시보드에 노출하지 않음
+                    return;
+                }
+                // OCCUPIED/CHATTING으로 복원 → 웹 입장에서 새로 등장하는 테이블이므로 TABLE_ADDED
+                broadcastTableAdded(savedTable);
             }
         });
     }

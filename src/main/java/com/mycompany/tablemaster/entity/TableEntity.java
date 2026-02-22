@@ -103,31 +103,42 @@ public class TableEntity {
     }
 
     /**
-     * 디바이스 연결 해제 시 비활성화
+     * 디바이스 연결 해제 시 비활성화 (네트워크 끊김, 재연결 대기)
      */
     public void deactivate() {
-        if (this.status != TableStatus.INACTIVE) {
+        if (this.status != TableStatus.INACTIVE && this.status != TableStatus.DELETED) {
             this.previousStatus = this.status;
             this.status = TableStatus.INACTIVE;
         }
     }
 
     /**
-     * 디바이스 재연결 시 활성화 (이전 상태 복원)
+     * 디바이스 재연결 시 활성화 (이전 상태 복원, DELETED는 복원 안 함)
      */
     public void activate() {
-        if (this.status == TableStatus.INACTIVE && this.previousStatus != null) {
+        if (this.status != TableStatus.INACTIVE) {
+            return;
+        }
+        if (this.previousStatus != null) {
             this.status = this.previousStatus;
             this.previousStatus = null;
-        } else if (this.status == TableStatus.INACTIVE) {
+        } else {
             this.status = TableStatus.OCCUPIED;
         }
     }
 
     /**
-     * 활성 상태인지 확인 (INACTIVE가 아닌 경우)
+     * 디바이스/테이블 영구 삭제 처리 (이력 보존, 재연결 시 복원 없음)
+     */
+    public void markDeleted() {
+        this.previousStatus = this.status;
+        this.status = TableStatus.DELETED;
+    }
+
+    /**
+     * 활성 상태인지 확인 (INACTIVE, DELETED 아닌 경우)
      */
     public boolean isActive() {
-        return this.status != TableStatus.INACTIVE;
+        return this.status != TableStatus.INACTIVE && this.status != TableStatus.DELETED;
     }
 }

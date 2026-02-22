@@ -39,6 +39,7 @@ public class DeviceAuthService {
     private final StringRedisTemplate redisTemplate;
     private final WebSocketSenderService webSocketSenderService;
     private final WebSocketSessionRegistry sessionRegistry;
+    private final TableService tableService;
 
     private static final String PENDING_KEY_PREFIX = "device:pending:";
     private static final long PENDING_TTL_SECONDS = 180; // 3분
@@ -153,7 +154,10 @@ public class DeviceAuthService {
                 "timestamp", java.time.Instant.now().toString()
         ));
 
-        // 2. DB 삭제
+        // 2. 테이블 DELETED 처리 (이력 보존, 대시보드에서 제거)
+        tableService.markTableDeleted(deviceId);
+
+        // 3. whitelist DB 삭제
         deviceWhitelistRepository.delete(device);
         log.info("Device deleted: {} ({})", device.getDeviceName(), device.getDeviceId());
     }
