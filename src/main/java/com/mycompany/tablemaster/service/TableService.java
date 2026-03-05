@@ -35,10 +35,10 @@ public class TableService {
     private final WebSocketSenderService webSocketSenderService;
 
     /**
-     * 모든 활성 테이블 조회 (AVAILABLE, INACTIVE 제외)
+     * 모든 테이블 조회 (AVAILABLE, DELETED 제외 / INACTIVE 포함)
      */
     public List<TableListResponse> getAllTables() {
-        return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.INACTIVE, TableStatus.DELETED)).stream()
+        return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.DELETED)).stream()
                 .map(TableListResponse::from)
                 .collect(Collectors.toList());
     }
@@ -268,6 +268,23 @@ public class TableService {
                 log.info("Table deactivated due to device disconnect: deviceId={}", deviceId);
 
                 broadcastTableUpdated(savedTable);
+            }
+        });
+    }
+
+    /**
+     * INACTIVE 테이블 삭제 (TTL 만료 시 호출)
+     * 히스토리 저장 후 DB 삭제 + TABLE_REMOVED 브로드캐스트
+     */
+    @Transactional
+    public void removeInactiveTable(String deviceId) {
+        tableRepository.findById(deviceId).ifPresent(table -> {
+            if (!table.isActive()) {
+                tableHistoryRepository.save(TableHistory.from(table));
+                tableRepository.delete(table);
+                log.info("Inactive table removed after TTL: deviceId={}", deviceId);
+
+                broadcastTableRemoved(deviceId);
             }
         });
     }

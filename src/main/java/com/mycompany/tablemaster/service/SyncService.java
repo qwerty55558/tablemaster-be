@@ -24,6 +24,7 @@ public class SyncService {
 
     private final TableRepository tableRepository;
     private final NotificationRepository notificationRepository;
+    private final TableService tableService;
 
     /**
      * 디바이스 동기화 데이터 조회
@@ -31,10 +32,8 @@ public class SyncService {
     public SyncResponse getSyncData(String deviceId) {
         log.info("Getting sync data for device: {}", deviceId);
 
-        // 1. 전체 테이블 목록 조회 (싱크용)
-        List<TableListResponse> tables = tableRepository.findAll().stream()
-                .map(TableListResponse::from)
-                .toList();
+        // 1. 전체 테이블 목록 조회 (AVAILABLE 제외, INACTIVE 포함)
+        List<TableListResponse> tables = tableService.getAllTables();
 
         // 2. 내 테이블 상태 조회 (id = deviceId)
         TableEntity myTable = tableRepository.findById(deviceId).orElse(null);

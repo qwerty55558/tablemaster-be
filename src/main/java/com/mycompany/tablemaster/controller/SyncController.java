@@ -79,4 +79,18 @@ public class SyncController {
 
         log.info("Sync completed: deviceId={}", deviceId);
     }
+
+    /**
+     * 테이블 재연결 요청
+     * 클라이언트: /app/table/reconnect 로 발행
+     * - 스냅샷에서 내 테이블이 INACTIVE인 경우 앱이 호출
+     * - 테이블 상태를 이전 상태로 복원하고 브로드캐스트
+     */
+    @MessageMapping("/table/reconnect")
+    public void handleTableReconnect(Principal principal) {
+        String deviceId = principal.getName();
+        log.info("Table reconnect requested: deviceId={}", deviceId);
+
+        tableService.activateTable(deviceId);
+    }
 }
