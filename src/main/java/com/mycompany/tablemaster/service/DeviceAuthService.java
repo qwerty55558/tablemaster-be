@@ -147,15 +147,15 @@ public class DeviceAuthService {
         DeviceWhitelist device = deviceWhitelistRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new BusinessException("디바이스를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "DEVICE_004"));
 
-        // 1. 먼저 메시지 전송 (연결된 상태에서)
+        // 1. 테이블 DELETED 처리 (이력 보존, 대시보드에서 제거)
+        tableService.markTableDeleted(deviceId);
+
+        // 2. 디바이스에 삭제 메시지 전송 (연결된 상태에서)
         webSocketSenderService.sendToDevice(deviceId, Map.of(
                 "type", "DEVICE_DELETED",
                 "deviceId", deviceId,
                 "timestamp", java.time.Instant.now().toString()
         ));
-
-        // 2. 테이블 DELETED 처리 (이력 보존, 대시보드에서 제거)
-        tableService.markTableDeleted(deviceId);
 
         // 3. whitelist DB 삭제
         deviceWhitelistRepository.delete(device);

@@ -29,7 +29,8 @@
       "mcp__crawl4ai__smart_crawl",
       "WebFetch(domain:qwerty55558.github.io)",
       "mcp__crawl4ai__crawl",
-      "mcp__crawl4ai__capture_screenshot"
+      "mcp__crawl4ai__capture_screenshot",
+      "Bash(git:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

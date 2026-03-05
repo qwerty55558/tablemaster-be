@@ -14,33 +14,25 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     // ============== Exchange Names ==============
-    public static final String GIFT_EXCHANGE = "gift.exchange";
     public static final String CHAT_EXCHANGE = "chat.exchange";
     public static final String NOTIFICATION_EXCHANGE = "notification.exchange";
     public static final String TABLE_EXCHANGE = "table.exchange";
+    public static final String DEVICE_EXCHANGE = "device.exchange";
     public static final String DLX_EXCHANGE = "dlx.exchange";
 
     // ============== Queue Names ==============
-    public static final String GIFT_PROCESS_QUEUE = "gift.process.queue";
-    public static final String GIFT_COMPLETE_QUEUE = "gift.complete.queue";
     public static final String CHAT_MESSAGE_QUEUE = "chat.message.queue";
-    public static final String NOTIFICATION_PUSH_QUEUE = "notification.push.queue";
     public static final String NOTIFICATION_INAPP_QUEUE = "notification.inapp.queue";
     public static final String TABLE_DELETED_QUEUE = "table.deleted.queue";
+    public static final String DEVICE_EVENT_QUEUE = "device.event.queue";
     public static final String DLQ = "dead.letter.queue";
 
     // ============== Routing Keys ==============
-    public static final String GIFT_PROCESS_KEY = "gift.process";
-    public static final String GIFT_COMPLETE_KEY = "gift.complete";
     public static final String CHAT_MESSAGE_KEY = "chat.message";
     public static final String TABLE_DELETED_KEY = "table.deleted";
+    public static final String DEVICE_EVENT_KEY = "device.event";
 
     // ============== Exchanges ==============
-
-    @Bean
-    public DirectExchange giftExchange() {
-        return new DirectExchange(GIFT_EXCHANGE);
-    }
 
     @Bean
     public TopicExchange chatExchange() {
@@ -58,6 +50,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public DirectExchange deviceExchange() {
+        return new DirectExchange(DEVICE_EXCHANGE);
+    }
+
+    @Bean
     public DirectExchange dlxExchange() {
         return new DirectExchange(DLX_EXCHANGE);
     }
@@ -65,32 +62,8 @@ public class RabbitMQConfig {
     // ============== Queues ==============
 
     @Bean
-    public Queue giftProcessQueue() {
-        return QueueBuilder.durable(GIFT_PROCESS_QUEUE)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", "dlq")
-                .build();
-    }
-
-    @Bean
-    public Queue giftCompleteQueue() {
-        return QueueBuilder.durable(GIFT_COMPLETE_QUEUE)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", "dlq")
-                .build();
-    }
-
-    @Bean
     public Queue chatMessageQueue() {
         return QueueBuilder.durable(CHAT_MESSAGE_QUEUE)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", "dlq")
-                .build();
-    }
-
-    @Bean
-    public Queue notificationPushQueue() {
-        return QueueBuilder.durable(NOTIFICATION_PUSH_QUEUE)
                 .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
                 .withArgument("x-dead-letter-routing-key", "dlq")
                 .build();
@@ -113,6 +86,14 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue deviceEventQueue() {
+        return QueueBuilder.durable(DEVICE_EVENT_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", "dlq")
+                .build();
+    }
+
+    @Bean
     public Queue deadLetterQueue() {
         return QueueBuilder.durable(DLQ).build();
     }
@@ -120,30 +101,10 @@ public class RabbitMQConfig {
     // ============== Bindings ==============
 
     @Bean
-    public Binding giftProcessBinding() {
-        return BindingBuilder.bind(giftProcessQueue())
-                .to(giftExchange())
-                .with(GIFT_PROCESS_KEY);
-    }
-
-    @Bean
-    public Binding giftCompleteBinding() {
-        return BindingBuilder.bind(giftCompleteQueue())
-                .to(giftExchange())
-                .with(GIFT_COMPLETE_KEY);
-    }
-
-    @Bean
     public Binding chatMessageBinding() {
         return BindingBuilder.bind(chatMessageQueue())
                 .to(chatExchange())
                 .with("chat.message.#");
-    }
-
-    @Bean
-    public Binding notificationPushBinding() {
-        return BindingBuilder.bind(notificationPushQueue())
-                .to(notificationExchange());
     }
 
     @Bean
@@ -157,6 +118,13 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(tableDeletedQueue())
                 .to(tableExchange())
                 .with(TABLE_DELETED_KEY);
+    }
+
+    @Bean
+    public Binding deviceEventBinding() {
+        return BindingBuilder.bind(deviceEventQueue())
+                .to(deviceExchange())
+                .with(DEVICE_EVENT_KEY);
     }
 
     @Bean
