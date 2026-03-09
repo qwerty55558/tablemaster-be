@@ -16,20 +16,17 @@ public class RabbitMQConfig {
     // ============== Exchange Names ==============
     public static final String CHAT_EXCHANGE = "chat.exchange";
     public static final String NOTIFICATION_EXCHANGE = "notification.exchange";
-    public static final String TABLE_EXCHANGE = "table.exchange";
     public static final String DEVICE_EXCHANGE = "device.exchange";
     public static final String DLX_EXCHANGE = "dlx.exchange";
 
     // ============== Queue Names ==============
     public static final String CHAT_MESSAGE_QUEUE = "chat.message.queue";
     public static final String NOTIFICATION_INAPP_QUEUE = "notification.inapp.queue";
-    public static final String TABLE_DELETED_QUEUE = "table.deleted.queue";
     public static final String DEVICE_EVENT_QUEUE = "device.event.queue";
     public static final String DLQ = "dead.letter.queue";
 
     // ============== Routing Keys ==============
     public static final String CHAT_MESSAGE_KEY = "chat.message";
-    public static final String TABLE_DELETED_KEY = "table.deleted";
     public static final String DEVICE_EVENT_KEY = "device.event";
 
     // ============== Exchanges ==============
@@ -42,11 +39,6 @@ public class RabbitMQConfig {
     @Bean
     public FanoutExchange notificationExchange() {
         return new FanoutExchange(NOTIFICATION_EXCHANGE);
-    }
-
-    @Bean
-    public DirectExchange tableExchange() {
-        return new DirectExchange(TABLE_EXCHANGE);
     }
 
     @Bean
@@ -78,14 +70,6 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Queue tableDeletedQueue() {
-        return QueueBuilder.durable(TABLE_DELETED_QUEUE)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", "dlq")
-                .build();
-    }
-
-    @Bean
     public Queue deviceEventQueue() {
         return QueueBuilder.durable(DEVICE_EVENT_QUEUE)
                 .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
@@ -111,13 +95,6 @@ public class RabbitMQConfig {
     public Binding notificationInAppBinding() {
         return BindingBuilder.bind(notificationInAppQueue())
                 .to(notificationExchange());
-    }
-
-    @Bean
-    public Binding tableDeletedBinding() {
-        return BindingBuilder.bind(tableDeletedQueue())
-                .to(tableExchange())
-                .with(TABLE_DELETED_KEY);
     }
 
     @Bean

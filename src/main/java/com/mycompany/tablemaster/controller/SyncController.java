@@ -27,7 +27,7 @@ public class SyncController {
     /**
      * 클라이언트 동기화 요청 처리
      * 클라이언트: /app/sync 로 발행
-     * 서버: /queue/tables, /queue/myTable, /queue/notifications 로 응답
+     * 서버: /queue/tables, /queue/notifications 로 응답
      */
     @MessageMapping("/sync")
     public void handleSync(SyncRequest request, Principal principal) {
@@ -47,16 +47,6 @@ public class SyncController {
                 )
         );
         log.debug("Sync: {} tables sent to device {}", response.getTables().size(), deviceId);
-
-        // 내 테이블 상태 전송 → /queue/myTable
-        if (response.getTable() != null) {
-            messagingTemplate.convertAndSendToUser(
-                    deviceId,
-                    "/queue/myTable",
-                    Map.of("type", "TABLE_UPDATED", "data", response.getTable())
-            );
-            log.debug("Sync: myTable data sent to device {}", deviceId);
-        }
 
         // 미전달 알림 전송 → /queue/notifications
         if (!response.getNotifications().isEmpty()) {

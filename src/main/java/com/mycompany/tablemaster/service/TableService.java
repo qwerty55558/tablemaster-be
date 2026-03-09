@@ -1,19 +1,25 @@
 package com.mycompany.tablemaster.service;
 
+import com.mycompany.tablemaster.dto.table.AvailableDeviceResponse;
+import com.mycompany.tablemaster.dto.table.TableHistoryListResponse;
+import com.mycompany.tablemaster.dto.table.TableHistoryRequest;
+import com.mycompany.tablemaster.dto.table.TableHistoryResponse;
 import com.mycompany.tablemaster.dto.table.TableListResponse;
 import com.mycompany.tablemaster.dto.table.TableSetupRequest;
 import com.mycompany.tablemaster.dto.table.TableSetupResponse;
 import com.mycompany.tablemaster.dto.table.TableUpdateRequest;
+import com.mycompany.tablemaster.entity.DeviceWhitelist;
+import com.mycompany.tablemaster.repository.DeviceWhitelistRepository;
 import com.mycompany.tablemaster.entity.TableEntity;
 import com.mycompany.tablemaster.entity.TableHistory;
 import com.mycompany.tablemaster.entity.TableStatus;
-import com.mycompany.tablemaster.event.TableEvent;
 import com.mycompany.tablemaster.exception.BusinessException;
-import com.mycompany.tablemaster.messaging.producer.TableEventProducer;
 import com.mycompany.tablemaster.repository.TableHistoryRepository;
 import com.mycompany.tablemaster.repository.TableRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +37,7 @@ public class TableService {
 
     private final TableRepository tableRepository;
     private final TableHistoryRepository tableHistoryRepository;
-    private final TableEventProducer tableEventProducer;
+    private final DeviceWhitelistRepository deviceWhitelistRepository;
     private final WebSocketSenderService webSocketSenderService;
 
     /**
@@ -40,6 +46,47 @@ public class TableService {
     public List<TableListResponse> getAllTables() {
         return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.DELETED)).stream()
                 .map(TableListResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 최근 30일 테이블 입장 기록 조회 (offset 기반 페이지네이션)
+     */
+    public TableHistoryListResponse getTableHistory(TableHistoryRequest request) {
+        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+        Pageable pageable = Pageable.ofSize(request.getLimit())
+                .withPage(request.getOffset() / Math.max(request.getLimit(), 1));
+
+        Page<TableHistory> page = tableHistoryRepository
+                .findByDeletedAtAfterOrderByDeletedAtDesc(thirtyDaysAgo, pageable);
+
+        return TableHistoryListResponse.builder()
+                .content(page.getContent().stream()
+                        .map(TableHistoryResponse::from)
+                        .collect(Collectors.toList()))
+                .totalCount(page.getTotalElements())
+                .offset(request.getOffset())
+                .limit(request.getLimit())
+                .hasNext(request.getOffset() + request.getLimit() < page.getTotalElements())
+                .build();
+    }
+
+    /**
+     * 빈 디바이스 조회 (화이트리스트에 등록됨 + 테이블 매칭 안 됨)
+     * 테이블이 없거나 AVAILABLE 상태인 디바이스 반환
+     */
+    public List<AvailableDeviceResponse> getAvailableDevices() {
+        List<DeviceWhitelist> activeDevices = deviceWhitelistRepository.findAll().stream()
+                .filter(DeviceWhitelist::getIsActive)
+                .toList();
+
+        List<String> occupiedDeviceIds = tableRepository.findByStatusNotIn(
+                List.of(TableStatus.AVAILABLE, TableStatus.DELETED)
+        ).stream().map(TableEntity::getId).toList();
+
+        return activeDevices.stream()
+                .filter(device -> !occupiedDeviceIds.contains(device.getDeviceId()))
+                .map(AvailableDeviceResponse::from)
                 .collect(Collectors.toList());
     }
 
@@ -96,6 +143,11 @@ public class TableService {
             );
         }
 
+        // 화이트리스트에서 디바이스 이름 조회
+        String deviceName = deviceWhitelistRepository.findByDeviceId(deviceId)
+                .map(DeviceWhitelist::getDeviceName)
+                .orElse(null);
+
         // 기존 테이블 확인 또는 새로 생성 (id = deviceId)
         TableEntity table = tableRepository.findById(deviceId)
                 .orElseGet(() -> TableEntity.builder()
@@ -111,11 +163,12 @@ public class TableService {
                 request.getFemaleCount(),
                 request.getMaleCount()
         );
+        table.setDeviceName(deviceName);
 
         TableEntity savedTable = tableRepository.save(table);
         log.info("Table setup completed: id={}, name={}", savedTable.getId(), savedTable.getName());
 
-        // 테이블 추가 브로드캐스트
+        // 웹 브로드캐스트
         broadcastTableAdded(savedTable);
 
         return TableSetupResponse.from(savedTable);
@@ -141,10 +194,7 @@ public class TableService {
 
         log.info("Table deleted and moved to history: deviceId={}", deviceId);
 
-        // 삭제 이벤트 발행
-        tableEventProducer.sendTableDeleted(TableEvent.deleted(deviceId, deviceId));
-
-        // 테이블 삭제 브로드캐스트
+        // 브로드캐스트
         broadcastTableRemoved(deviceId);
     }
 
@@ -179,7 +229,12 @@ public class TableService {
             table.setLocation(request.getLocation());
         }
 
-        // 채팅 상태 수정
+        // 채팅 허용 상태 수정
+        if (request.getIsChatEnabled() != null) {
+            table.setIsChatEnabled(request.getIsChatEnabled());
+        }
+
+        // 채팅 중 상태 수정
         if (request.getIsChatting() != null) {
             table.setIsChatting(request.getIsChatting());
         }
@@ -187,7 +242,7 @@ public class TableService {
         TableEntity savedTable = tableRepository.save(table);
         log.info("Table updated: id={}", savedTable.getId());
 
-        // 테이블 수정 브로드캐스트
+        // 웹 브로드캐스트
         broadcastTableUpdated(savedTable);
 
         return TableSetupResponse.from(savedTable);
@@ -304,8 +359,8 @@ public class TableService {
                     // AVAILABLE로 복원된 경우 대시보드에 노출하지 않음
                     return;
                 }
-                // OCCUPIED/CHATTING으로 복원 → 웹 입장에서 새로 등장하는 테이블이므로 TABLE_ADDED
-                broadcastTableAdded(savedTable);
+                // OCCUPIED/CHATTING으로 복원 → 대시보드에 INACTIVE로 이미 존재하므로 TABLE_UPDATED
+                broadcastTableUpdated(savedTable);
             }
         });
     }

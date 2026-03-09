@@ -13,11 +13,14 @@ import java.time.LocalDateTime;
 @Schema(description = "테이블 설정 응답")
 public class TableSetupResponse {
 
-    @Schema(description = "테이블 ID", example = "A1")
+    @Schema(description = "테이블 ID (= deviceId)", example = "device-001")
     private String id;
 
     @Schema(description = "테이블 이름", example = "A1")
     private String name;
+
+    @Schema(description = "디바이스 이름", example = "1번 태블릿")
+    private String deviceName;
 
     @Schema(description = "테이블 상태", example = "OCCUPIED")
     private TableStatus status;
@@ -34,8 +37,14 @@ public class TableSetupResponse {
     @Schema(description = "남성 인원", example = "3")
     private Integer maleCount;
 
+    @Schema(description = "채팅 허용 여부", example = "false")
+    private Boolean isChatEnabled;
+
     @Schema(description = "채팅 중 여부", example = "false")
     private Boolean isChatting;
+
+    @Schema(description = "생성 시간")
+    private LocalDateTime createdAt;
 
     @Schema(description = "마지막 업데이트 시간")
     private LocalDateTime updatedAt;
@@ -44,12 +53,15 @@ public class TableSetupResponse {
         return TableSetupResponse.builder()
                 .id(table.getId())
                 .name(table.getName())
+                .deviceName(table.getDeviceName())
                 .status(table.getStatus())
                 .location(table.getLocation())
                 .guestCount(table.getGuestCount())
                 .femaleCount(table.getFemaleCount())
                 .maleCount(table.getMaleCount())
+                .isChatEnabled(table.getIsChatEnabled())
                 .isChatting(table.getIsChatting())
+                .createdAt(table.getCreatedAt())
                 .updatedAt(table.getUpdatedAt())
                 .build();
     }

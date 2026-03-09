@@ -93,8 +93,8 @@ public class SecurityConfig {
                 "http://localhost:3000",   // Next.js 개발 서버
                 "http://localhost:8080",   // 로컬 테스트
                 "http://localhost:5000",   // flutter web
-                "https://clauminirockpt.tech",     // Production frontend
-                "https://app.clauminirockpt.tech"  // Production flutter app
+                "https://clauminirockpt.me",     // Production frontend
+                "https://app.clauminirockpt.me"  // Production flutter app
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

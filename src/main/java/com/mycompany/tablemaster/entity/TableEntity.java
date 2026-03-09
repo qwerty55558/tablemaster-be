@@ -21,6 +21,9 @@ public class TableEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "device_name")
+    private String deviceName;  // 화이트리스트에서 가져온 디바이스 이름
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TableStatus status = TableStatus.AVAILABLE;
@@ -36,8 +39,11 @@ public class TableEntity {
     @Column
     private Long revenue = 0L;      // 매상
 
+    @Column(name = "is_chat_enabled", nullable = false)
+    private Boolean isChatEnabled = false;  // 채팅 허용 (다른 테이블과 채팅할 의향)
+
     @Column(nullable = false)
-    private Boolean isChatting = false;
+    private Boolean isChatting = false;     // 채팅 중 (현재 다른 테이블과 소통 중)
 
     @Enumerated(EnumType.STRING)
     @Column(name = "previous_status")
@@ -61,17 +67,20 @@ public class TableEntity {
     }
 
     @Builder
-    public TableEntity(String id, String name, TableStatus status, String location,
-                       Integer guestCount, Integer femaleCount, Integer maleCount,
-                       Long revenue, Boolean isChatting, TableStatus previousStatus) {
+    public TableEntity(String id, String name, String deviceName, TableStatus status,
+                       String location, Integer guestCount, Integer femaleCount,
+                       Integer maleCount, Long revenue, Boolean isChatEnabled,
+                       Boolean isChatting, TableStatus previousStatus) {
         this.id = id;
         this.name = name;
+        this.deviceName = deviceName;
         this.status = status != null ? status : TableStatus.AVAILABLE;
         this.location = location;
         this.guestCount = guestCount;
         this.femaleCount = femaleCount;
         this.maleCount = maleCount;
         this.revenue = revenue != null ? revenue : 0L;
+        this.isChatEnabled = isChatEnabled != null ? isChatEnabled : false;
         this.isChatting = isChatting != null ? isChatting : false;
         this.previousStatus = previousStatus;
     }
@@ -86,6 +95,7 @@ public class TableEntity {
         this.femaleCount = femaleCount;
         this.maleCount = maleCount;
         this.status = TableStatus.OCCUPIED;
+        this.isChatEnabled = false;
         this.isChatting = false;
     }
 

@@ -49,20 +49,6 @@ public class WebSocketSenderService {
     }
 
     /**
-     * /queue/myTable - 내 테이블 (table_deleted, table_updated)
-     */
-    public boolean sendMyTableUpdate(String deviceId, Object payload) {
-        try {
-            messagingTemplate.convertAndSendToUser(deviceId, "/queue/myTable", payload);
-            log.debug("MyTable update sent: deviceId={}", deviceId);
-            return true;
-        } catch (Exception e) {
-            log.error("Failed to send myTable update: deviceId={}", deviceId, e);
-            return false;
-        }
-    }
-
-    /**
      * /queue/chat - 채팅 메시지
      */
     public boolean sendChatToDevice(String deviceId, Object payload) {

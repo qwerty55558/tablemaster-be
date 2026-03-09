@@ -38,9 +38,9 @@ out/
 .vscode/
 
 # mcp settings
-#opencode.json
-#swagger-config.json
-#.mcp.json
+opencode.json
+swagger-config.json
+.mcp.json
 
 # Environment files
 #.env

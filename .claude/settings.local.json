@@ -30,7 +30,17 @@
       "WebFetch(domain:qwerty55558.github.io)",
       "mcp__crawl4ai__crawl",
       "mcp__crawl4ai__capture_screenshot",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(gh auth:*)",
+      "Bash(docker:*)",
+      "mcp__swagger__get-api-doc",
+      "mcp__ide__getDiagnostics",
+      "mcp__browser__browser_navigate",
+      "mcp__browser__browser_screenshot",
+      "mcp__browser__browser_snapshot",
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=postgres psql:*)",
+      "Bash(brew:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

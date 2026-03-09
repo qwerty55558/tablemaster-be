@@ -27,6 +27,9 @@ public class TableUpdateRequest {
     @Schema(description = "남성 인원", example = "3")
     private Integer maleCount;
 
+    @Schema(description = "채팅 허용 여부", example = "true")
+    private Boolean isChatEnabled;
+
     @Schema(description = "채팅 중 여부", example = "true")
     private Boolean isChatting;
 }
