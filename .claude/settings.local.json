@@ -40,7 +40,16 @@
       "mcp__browser__browser_snapshot",
       "Bash(grep:*)",
       "Bash(PGPASSWORD=postgres psql:*)",
-      "Bash(brew:*)"
+      "Bash(brew:*)",
+      "mcp__browser__browser_fill",
+      "mcp__browser__browser_click",
+      "mcp__browser__browser_wait",
+      "mcp__browser__browser_scroll",
+      "Bash(find . -name \"*.log\" -o -name \"*.log.*\" 2>/dev/null | head -20)",
+      "Bash(./mvnw compile:*)",
+      "Bash(ls /Users/personal-ai/Projects/personal/tableProject/be/mvnw /Users/personal-ai/Projects/personal/tableProject/be/gradlew 2>/dev/null; ls /Users/personal-ai/Projects/personal/tableProject/be/*.gradle /Users/personal-ai/Projects/personal/tableProject/be/pom.xml 2>/dev/null)",
+      "Bash(ls /Users/personal-ai/Projects/personal/tableProject/be/Dockerfile 2>/dev/null; ls /Users/personal-ai/Projects/personal/tableProject/be/docker-compose*.yml 2>/dev/null)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''''auths'''',{}\\).keys\\(\\)\\)\\)\")"
     ]
   },
   "enableAllProjectMcpServers": true,

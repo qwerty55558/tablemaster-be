@@ -48,7 +48,7 @@ swagger-config.json
 #.env.*.local
 
 # Deployment
-Dockerfile
+#Dockerfile
 #init.sql
 src/main/resources/application-prod.yaml
 
