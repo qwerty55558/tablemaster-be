@@ -49,7 +49,7 @@ swagger-config.json
 
 # Deployment
 Dockerfile
-init.sql
+#init.sql
 src/main/resources/application-prod.yaml
 
 # Claude/Tooling

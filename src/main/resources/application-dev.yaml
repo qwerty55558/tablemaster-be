@@ -12,9 +12,15 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 2
 
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:init.sql
+
   jpa:
     hibernate:
       ddl-auto: update
+    defer-datasource-initialization: true
     show-sql: true
     properties:
       hibernate:
