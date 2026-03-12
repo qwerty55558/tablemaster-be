@@ -115,4 +115,37 @@ public class BusinessException extends RuntimeException {
     public static BusinessException deviceInactive() {
         return new BusinessException("비활성화된 디바이스입니다", HttpStatus.UNAUTHORIZED, "DEVICE_003");
     }
+
+    // 채팅 관련 예외
+    public static BusinessException chatRoomNotFound() {
+        return new BusinessException("채팅방을 찾을 수 없습니다", HttpStatus.NOT_FOUND, "CHAT_001");
+    }
+
+    public static BusinessException chatRoomNotActive() {
+        return new BusinessException("활성 상태의 채팅방이 아닙니다", HttpStatus.BAD_REQUEST, "CHAT_002");
+    }
+
+    public static BusinessException chatParticipantNotFound() {
+        return new BusinessException("채팅 참여자를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "CHAT_003");
+    }
+
+    public static BusinessException chatReportNotFound() {
+        return new BusinessException("신고 내역을 찾을 수 없습니다", HttpStatus.NOT_FOUND, "CHAT_004");
+    }
+
+    public static BusinessException tableNotChatEnabled() {
+        return new BusinessException("채팅이 허용되지 않은 테이블입니다", HttpStatus.BAD_REQUEST, "CHAT_005");
+    }
+
+    public static BusinessException alreadyChatting() {
+        return new BusinessException("이미 채팅 중인 테이블입니다", HttpStatus.CONFLICT, "CHAT_006");
+    }
+
+    public static BusinessException noActiveChatRoom() {
+        return new BusinessException("활성 채팅방이 없습니다", HttpStatus.NOT_FOUND, "CHAT_007");
+    }
+
+    public static BusinessException tableNotFound() {
+        return new BusinessException("테이블을 찾을 수 없습니다", HttpStatus.NOT_FOUND, "TABLE_001");
+    }
 }
