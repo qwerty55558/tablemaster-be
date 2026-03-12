@@ -1,4 +1,233 @@
 -- ============================================
+-- 테이블 생성 (PostgreSQL)
+-- ============================================
+
+-- 유저
+CREATE TABLE IF NOT EXISTS users (
+    id         BIGSERIAL    PRIMARY KEY,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    password   VARCHAR(255) NOT NULL,
+    name       VARCHAR(255) NOT NULL,
+    phone      VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- 유저 역할 (ElementCollection)
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id BIGINT      NOT NULL REFERENCES users(id),
+    role    VARCHAR(50) NOT NULL,
+    PRIMARY KEY (user_id, role)
+);
+
+-- 약관
+CREATE TABLE IF NOT EXISTS terms (
+    id         BIGSERIAL    PRIMARY KEY,
+    type       VARCHAR(20)  NOT NULL,
+    title      VARCHAR(255) NOT NULL,
+    content    TEXT,
+    version    VARCHAR(255) NOT NULL,
+    required   BOOLEAN      NOT NULL,
+    is_active  BOOLEAN      NOT NULL DEFAULT true,
+    created_at TIMESTAMP
+);
+
+-- 유저 약관 동의
+CREATE TABLE IF NOT EXISTS user_terms_agreements (
+    id         BIGSERIAL    PRIMARY KEY,
+    user_id    BIGINT       NOT NULL REFERENCES users(id),
+    terms_id   BIGINT       NOT NULL REFERENCES terms(id),
+    agreed_at  TIMESTAMP    NOT NULL,
+    ip_address VARCHAR(255)
+);
+
+-- 리프레시 토큰
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id          BIGSERIAL    PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES users(id),
+    token       VARCHAR(500) NOT NULL UNIQUE,
+    device_info VARCHAR(255),
+    ip_address  VARCHAR(45),
+    expires_at  TIMESTAMP    NOT NULL,
+    revoked     BOOLEAN      NOT NULL DEFAULT false,
+    created_at  TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_token_token   ON refresh_tokens (token);
+CREATE INDEX IF NOT EXISTS idx_refresh_token_user_id ON refresh_tokens (user_id);
+
+-- 디바이스 화이트리스트
+CREATE TABLE IF NOT EXISTS device_whitelist (
+    id            BIGSERIAL    PRIMARY KEY,
+    device_id     VARCHAR(255) NOT NULL UNIQUE,
+    device_name   VARCHAR(100),
+    is_active     BOOLEAN      NOT NULL DEFAULT true,
+    created_at    TIMESTAMP,
+    last_login_at TIMESTAMP
+);
+
+-- 테이블
+CREATE TABLE IF NOT EXISTS tables (
+    id              VARCHAR(255) PRIMARY KEY,
+    name            VARCHAR(255) NOT NULL,
+    device_name     VARCHAR(255),
+    status          VARCHAR(20)  NOT NULL DEFAULT 'AVAILABLE',
+    location        VARCHAR(255),
+    guest_count     INTEGER,
+    female_count    INTEGER,
+    male_count      INTEGER,
+    revenue         BIGINT       DEFAULT 0,
+    is_chat_enabled BOOLEAN      NOT NULL DEFAULT false,
+    is_chatting     BOOLEAN      NOT NULL DEFAULT false,
+    previous_status VARCHAR(20),
+    created_at      TIMESTAMP,
+    updated_at      TIMESTAMP
+);
+
+-- 테이블 히스토리
+CREATE TABLE IF NOT EXISTS table_history (
+    id           BIGSERIAL    PRIMARY KEY,
+    device_id    VARCHAR(255) NOT NULL,
+    name         VARCHAR(255) NOT NULL,
+    device_name  VARCHAR(255),
+    location     VARCHAR(255),
+    guest_count  INTEGER,
+    female_count INTEGER,
+    male_count   INTEGER,
+    revenue      BIGINT,
+    created_at   TIMESTAMP,
+    deleted_at   TIMESTAMP
+);
+
+-- 채팅방
+CREATE TABLE IF NOT EXISTS chat_rooms (
+    id                  BIGSERIAL   PRIMARY KEY,
+    status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    started_at          TIMESTAMP,
+    closed_at           TIMESTAMP,
+    total_message_count INTEGER     NOT NULL DEFAULT 0,
+    gift_count          INTEGER     NOT NULL DEFAULT 0,
+    report_count        INTEGER     NOT NULL DEFAULT 0
+);
+
+-- 채팅방 참여자
+CREATE TABLE IF NOT EXISTS chat_room_participants (
+    id           BIGSERIAL    PRIMARY KEY,
+    chat_room_id BIGINT       NOT NULL REFERENCES chat_rooms(id),
+    device_id    VARCHAR(255) NOT NULL,
+    table_name   VARCHAR(255) NOT NULL,
+    is_muted     BOOLEAN      NOT NULL DEFAULT false
+);
+
+-- 채팅 메시지
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id                BIGSERIAL    PRIMARY KEY,
+    chat_room_id      BIGINT       NOT NULL REFERENCES chat_rooms(id),
+    sender_device_id  VARCHAR(255),
+    sender_table_name VARCHAR(255),
+    content           TEXT,
+    type              VARCHAR(20)  NOT NULL,
+    created_at        TIMESTAMP
+);
+
+-- 채팅 신고
+CREATE TABLE IF NOT EXISTS chat_reports (
+    id                 BIGSERIAL    PRIMARY KEY,
+    chat_room_id       BIGINT       NOT NULL REFERENCES chat_rooms(id),
+    reporter_device_id VARCHAR(255) NOT NULL,
+    reported_device_id VARCHAR(255) NOT NULL,
+    reason             VARCHAR(255) NOT NULL,
+    status             VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
+    reviewed_by        BIGINT,
+    created_at         TIMESTAMP
+);
+
+-- 채팅방 히스토리
+CREATE TABLE IF NOT EXISTS chat_room_histories (
+    id                  BIGSERIAL    PRIMARY KEY,
+    room_id             BIGINT       NOT NULL,
+    participants        VARCHAR(255) NOT NULL,
+    status              VARCHAR(20)  NOT NULL,
+    total_message_count INTEGER      NOT NULL,
+    gift_count          INTEGER      NOT NULL,
+    report_count        INTEGER      NOT NULL,
+    started_at          TIMESTAMP,
+    closed_at           TIMESTAMP,
+    deleted_at          TIMESTAMP,
+    delete_reason       VARCHAR(255) NOT NULL
+);
+
+-- 스태프 채팅 읽음 위치
+CREATE TABLE IF NOT EXISTS staff_chat_read_positions (
+    id                  BIGSERIAL NOT NULL PRIMARY KEY,
+    user_id             BIGINT    NOT NULL,
+    chat_room_id        BIGINT    NOT NULL,
+    last_read_message_id BIGINT   NOT NULL DEFAULT 0,
+    CONSTRAINT uq_staff_chat_read UNIQUE (user_id, chat_room_id)
+);
+
+-- 알림
+CREATE TABLE IF NOT EXISTS notifications (
+    id           BIGSERIAL    PRIMARY KEY,
+    device_id    VARCHAR(255) NOT NULL,
+    title        VARCHAR(255) NOT NULL,
+    body         TEXT,
+    category     VARCHAR(50)  NOT NULL,
+    data         TEXT,
+    is_read      BOOLEAN      NOT NULL DEFAULT false,
+    is_delivered BOOLEAN      NOT NULL DEFAULT false,
+    delivered_at TIMESTAMP,
+    created_at   TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_device_delivered ON notifications (device_id, is_delivered);
+CREATE INDEX IF NOT EXISTS idx_notification_device_created   ON notifications (device_id, created_at DESC);
+
+-- 메뉴 아이템
+CREATE TABLE IF NOT EXISTS menu_items (
+    id           BIGSERIAL    PRIMARY KEY,
+    name         VARCHAR(255) NOT NULL UNIQUE,
+    price        INTEGER      NOT NULL,
+    category     VARCHAR(20)  NOT NULL,
+    is_available BOOLEAN      NOT NULL DEFAULT true,
+    created_at   TIMESTAMP,
+    updated_at   TIMESTAMP
+);
+
+-- 선물 타입
+CREATE TABLE IF NOT EXISTS gift_types (
+    id           BIGSERIAL    PRIMARY KEY,
+    code         VARCHAR(255) NOT NULL UNIQUE,
+    display_name VARCHAR(255) NOT NULL,
+    price        INTEGER      NOT NULL,
+    is_available BOOLEAN      NOT NULL DEFAULT true
+);
+
+-- 빌
+CREATE TABLE IF NOT EXISTS bills (
+    id           BIGSERIAL    PRIMARY KEY,
+    device_id    VARCHAR(255) NOT NULL,
+    table_name   VARCHAR(255) NOT NULL,
+    status       VARCHAR(20)  NOT NULL DEFAULT 'OPEN',
+    total_amount BIGINT       NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP,
+    updated_at   TIMESTAMP,
+    closed_at    TIMESTAMP
+);
+
+-- 주문 아이템
+CREATE TABLE IF NOT EXISTS order_items (
+    id           BIGSERIAL   PRIMARY KEY,
+    bill_id      BIGINT      NOT NULL REFERENCES bills(id),
+    menu_item_id BIGINT      NOT NULL REFERENCES menu_items(id),
+    name         VARCHAR(255) NOT NULL,
+    price        INTEGER      NOT NULL,
+    quantity     INTEGER      NOT NULL,
+    category     VARCHAR(20)  NOT NULL,
+    created_at   TIMESTAMP
+);
+
+-- ============================================
 -- 초기 데이터 (PostgreSQL)
 -- ============================================
 
