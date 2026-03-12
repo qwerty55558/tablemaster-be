@@ -39,6 +39,7 @@ public class TableService {
     private final TableHistoryRepository tableHistoryRepository;
     private final DeviceWhitelistRepository deviceWhitelistRepository;
     private final WebSocketSenderService webSocketSenderService;
+    private final ChatRoomService chatRoomService;
 
     /**
      * 모든 테이블 조회 (AVAILABLE, DELETED 제외 / INACTIVE 포함)
@@ -186,6 +187,9 @@ public class TableService {
                         "TABLE_001"
                 ));
 
+        // 채팅 데이터 로그 후 삭제
+        chatRoomService.cleanupByDeviceId(deviceId);
+
         // 히스토리에 저장
         tableHistoryRepository.save(TableHistory.from(table));
 
@@ -258,15 +262,21 @@ public class TableService {
     }
 
     /**
-     * 디바이스/테이블 영구 삭제 처리 (DELETED 상태로 변경 후 대시보드에서 제거)
+     * 디바이스 삭제 시 연동 테이블 처리 (히스토리 저장 후 DB 삭제)
      */
     @Transactional
     public void markTableDeleted(String deviceId) {
         tableRepository.findById(deviceId).ifPresent(table -> {
             if (table.getStatus() != TableStatus.DELETED) {
-                table.markDeleted();
-                tableRepository.save(table);
-                log.info("Table marked as deleted: deviceId={}", deviceId);
+                // 채팅 데이터 히스토리 저장 후 삭제
+                chatRoomService.cleanupByDeviceId(deviceId);
+
+                // AVAILABLE 상태가 아닌 경우(손님이 있는 경우)만 히스토리 저장
+                if (table.getStatus() != TableStatus.AVAILABLE) {
+                    tableHistoryRepository.save(TableHistory.from(table));
+                }
+                tableRepository.delete(table);
+                log.info("Table deleted and moved to history: deviceId={}", deviceId);
                 broadcastTableRemoved(deviceId);
             }
         });
@@ -335,6 +345,7 @@ public class TableService {
     public void removeInactiveTable(String deviceId) {
         tableRepository.findById(deviceId).ifPresent(table -> {
             if (!table.isActive()) {
+                chatRoomService.cleanupByDeviceId(deviceId);
                 tableHistoryRepository.save(TableHistory.from(table));
                 tableRepository.delete(table);
                 log.info("Inactive table removed after TTL: deviceId={}", deviceId);

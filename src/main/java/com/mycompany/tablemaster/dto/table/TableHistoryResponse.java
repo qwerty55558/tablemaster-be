@@ -21,6 +21,9 @@ public class TableHistoryResponse {
     @Schema(description = "테이블 이름", example = "A1")
     private String name;
 
+    @Schema(description = "디바이스 이름", example = "iPad-1")
+    private String deviceName;
+
     @Schema(description = "지역", example = "서울")
     private String location;
 
@@ -47,6 +50,7 @@ public class TableHistoryResponse {
                 .id(history.getId())
                 .deviceId(history.getDeviceId())
                 .name(history.getName())
+                .deviceName(history.getDeviceName())
                 .location(history.getLocation())
                 .guestCount(history.getGuestCount())
                 .femaleCount(history.getFemaleCount())

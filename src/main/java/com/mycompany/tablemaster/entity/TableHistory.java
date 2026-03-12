@@ -23,6 +23,9 @@ public class TableHistory {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "device_name")
+    private String deviceName;
+
     private String location;
 
     private Integer guestCount;
@@ -40,11 +43,12 @@ public class TableHistory {
     private LocalDateTime deletedAt;
 
     @Builder
-    public TableHistory(String deviceId, String name, String location,
+    public TableHistory(String deviceId, String name, String deviceName, String location,
                         Integer guestCount, Integer femaleCount, Integer maleCount,
                         Long revenue, LocalDateTime createdAt) {
         this.deviceId = deviceId;
         this.name = name;
+        this.deviceName = deviceName;
         this.location = location;
         this.guestCount = guestCount;
         this.femaleCount = femaleCount;
@@ -58,6 +62,7 @@ public class TableHistory {
         return TableHistory.builder()
                 .deviceId(table.getId())
                 .name(table.getName())
+                .deviceName(table.getDeviceName())
                 .location(table.getLocation())
                 .guestCount(table.getGuestCount())
                 .femaleCount(table.getFemaleCount())

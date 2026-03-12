@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -74,6 +75,7 @@ public class TableController {
 
     @PatchMapping("/{deviceId}")
     @Operation(summary = "테이블 수정", description = "테이블 정보를 수정합니다 (인원, 위치, 채팅 상태)")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN') or (hasRole('DEVICE') and principal.name == #deviceId)")
     public ResponseEntity<TableSetupResponse> updateTable(
             @PathVariable String deviceId,
             @Valid @RequestBody TableUpdateRequest request
