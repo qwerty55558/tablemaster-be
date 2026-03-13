@@ -231,6 +231,43 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- 초기 데이터 (PostgreSQL)
 -- ============================================
 
+-- 약관
+INSERT INTO terms (type, title, content, version, required, is_active, created_at) VALUES
+('SERVICE', '서비스 이용약관', '테이블마스터 서비스 이용약관입니다. 본 약관은 회사가 제공하는 서비스의 이용과 관련하여 회사와 이용자의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.', '1.0', true, true, NOW()),
+('PRIVACY', '개인정보 처리방침', '테이블마스터 개인정보 처리방침입니다. 회사는 이용자의 개인정보를 중요시하며, 개인정보보호법 등 관련 법령을 준수하고 있습니다.', '1.0', true, true, NOW()),
+('MARKETING', '마케팅 정보 수신 동의', '프로모션, 이벤트 등 마케팅 정보를 이메일, SMS 등으로 수신하는 것에 동의합니다.', '1.0', false, true, NOW())
+ON CONFLICT DO NOTHING;
+
+-- 관리자 계정: 1@1.com / qweR123$
+INSERT INTO users (email, password, name, phone, created_at, updated_at) VALUES
+('1@1.com', '$2b$10$YDS91C6W94.TZBP6VRxg4eUtmmpZpoIksYQqULJ60.7Ek3OG7LsqS', '관리자', '010-0000-0000', NOW(), NOW())
+ON CONFLICT DO NOTHING;
+
+INSERT INTO user_roles (user_id, role)
+SELECT id, 'ROLE_ADMIN' FROM users WHERE email = '1@1.com'
+ON CONFLICT DO NOTHING;
+
+-- 관리자 약관 동의
+INSERT INTO user_terms_agreements (user_id, terms_id, agreed_at)
+SELECT u.id, t.id, NOW() FROM users u, terms t
+WHERE u.email = '1@1.com' AND t.type IN ('SERVICE', 'PRIVACY')
+ON CONFLICT DO NOTHING;
+
+-- 스태프 계정: 2@2.com / qweR123$
+INSERT INTO users (email, password, name, phone, created_at, updated_at) VALUES
+('2@2.com', '$2b$10$YDS91C6W94.TZBP6VRxg4eUtmmpZpoIksYQqULJ60.7Ek3OG7LsqS', '스태프', '010-0000-0001', NOW(), NOW())
+ON CONFLICT DO NOTHING;
+
+INSERT INTO user_roles (user_id, role)
+SELECT id, 'ROLE_STAFF' FROM users WHERE email = '2@2.com'
+ON CONFLICT DO NOTHING;
+
+-- 스태프 약관 동의
+INSERT INTO user_terms_agreements (user_id, terms_id, agreed_at)
+SELECT u.id, t.id, NOW() FROM users u, terms t
+WHERE u.email = '2@2.com' AND t.type IN ('SERVICE', 'PRIVACY')
+ON CONFLICT DO NOTHING;
+
 -- 메뉴: 음식
 INSERT INTO menu_items (name, price, category, is_available, created_at, updated_at) VALUES
 ('치킨 너겟', 12000, 'FOOD', true, NOW(), NOW()),

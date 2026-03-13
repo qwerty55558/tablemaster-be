@@ -22,5 +22,9 @@ public interface ChatRoomParticipantRepository extends JpaRepository<ChatRoomPar
            "WHERE p.deviceId = :deviceId AND p.chatRoom.status = 'ACTIVE'")
     long countActiveRoomsByDeviceId(@Param("deviceId") String deviceId);
 
+    @Query("SELECT p FROM ChatRoomParticipant p JOIN FETCH p.chatRoom " +
+           "WHERE p.deviceId = :deviceId AND p.chatRoom.status = 'ACTIVE'")
+    List<ChatRoomParticipant> findActiveByDeviceId(@Param("deviceId") String deviceId);
+
     void deleteByChatRoomId(Long chatRoomId);
 }

@@ -136,8 +136,8 @@ public class ChatController {
         // LEAVE 이벤트를 RabbitMQ로 발행 → ChatEventConsumer가 처리
         chatEventProducer.sendLeave(ChatEvent.leave(roomId, deviceId, table.getName()));
 
-        // 채팅방 종료
-        chatRoomService.closeRoom(roomId);
+        // 채팅방 종료 + 상대방에게 CHAT_CLOSED 알림
+        chatRoomService.closeRoom(roomId, deviceId);
 
         log.info("Chat leave: roomId={}, deviceId={}", roomId, deviceId);
     }

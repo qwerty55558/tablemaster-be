@@ -3,6 +3,7 @@ package com.mycompany.tablemaster.controller;
 import com.mycompany.tablemaster.dto.sync.SyncRequest;
 import com.mycompany.tablemaster.dto.sync.SyncResponse;
 import com.mycompany.tablemaster.entity.TableStatus;
+import com.mycompany.tablemaster.service.ChatRoomService;
 import com.mycompany.tablemaster.service.SyncService;
 import com.mycompany.tablemaster.service.TableService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Controller
@@ -22,6 +24,7 @@ public class SyncController {
 
     private final SyncService syncService;
     private final TableService tableService;
+    private final ChatRoomService chatRoomService;
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
@@ -57,6 +60,18 @@ public class SyncController {
             );
             log.debug("Sync: {} notifications sent to device {}", response.getNotifications().size(), deviceId);
         }
+
+        // 활성 채팅방 스냅샷 전송 → /queue/chat
+        List<Map<String, Object>> chatRooms = chatRoomService.getActiveChatRoomsSnapshot(deviceId);
+        messagingTemplate.convertAndSendToUser(
+                deviceId,
+                "/queue/chat",
+                Map.of(
+                        "type", "CHAT_ROOMS_SNAPSHOT",
+                        "rooms", chatRooms
+                )
+        );
+        log.debug("Sync: {} active chat rooms sent to device {}", chatRooms.size(), deviceId);
 
         // 재연결 시 활성 테이블이 있으면 웹 클라이언트에 브로드캐스트
         if (response.getTable() != null) {

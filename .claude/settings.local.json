@@ -49,7 +49,12 @@
       "Bash(./mvnw compile:*)",
       "Bash(ls /Users/personal-ai/Projects/personal/tableProject/be/mvnw /Users/personal-ai/Projects/personal/tableProject/be/gradlew 2>/dev/null; ls /Users/personal-ai/Projects/personal/tableProject/be/*.gradle /Users/personal-ai/Projects/personal/tableProject/be/pom.xml 2>/dev/null)",
       "Bash(ls /Users/personal-ai/Projects/personal/tableProject/be/Dockerfile 2>/dev/null; ls /Users/personal-ai/Projects/personal/tableProject/be/docker-compose*.yml 2>/dev/null)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''''auths'''',{}\\).keys\\(\\)\\)\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''''auths'''',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(colima list:*)",
+      "Bash(echo $DOCKER_HOST)",
+      "Read(//Users/personal-ai/.colima/default/**)",
+      "Bash(colima status:*)",
+      "Bash(colima-build 2>&1; colima-dev 2>&1)"
     ]
   },
   "enableAllProjectMcpServers": true,

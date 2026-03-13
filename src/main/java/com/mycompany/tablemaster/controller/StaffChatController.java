@@ -128,9 +128,10 @@ public class StaffChatController {
     @PostMapping("/rooms/{id}/sanction")
     public ResponseEntity<Void> sanctionRoom(
             @PathVariable Long id,
+            @RequestBody ChatSanctionRequest request,
             @AuthenticationPrincipal UserAuthPrincipal principal) {
 
-        chatRoomService.sanctionRoom(id, principal.getUserId());
+        chatRoomService.sanctionRoom(id, principal.getUserId(), request.getType(), request.getReason());
         return ResponseEntity.ok().build();
     }
 
