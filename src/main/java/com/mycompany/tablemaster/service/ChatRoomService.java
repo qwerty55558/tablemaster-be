@@ -8,9 +8,12 @@ import com.mycompany.tablemaster.messaging.producer.ChatEventProducer;
 import com.mycompany.tablemaster.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +34,12 @@ public class ChatRoomService {
     private final ChatMessageService chatMessageService;
     private final WebSocketSenderService webSocketSenderService;
     private final ChatEventProducer chatEventProducer;
+    private final StringRedisTemplate redisTemplate;
+
+    @Transactional(readOnly = true)
+    public boolean hasActiveRoomBetween(String deviceId1, String deviceId2) {
+        return chatRoomParticipantRepository.existsActiveRoomBetween(deviceId1, deviceId2);
+    }
 
     @Transactional
     public ChatRoom createRoom(String deviceId1, String tableName1,
@@ -55,17 +64,34 @@ public class ChatRoomService {
         chatRoomParticipantRepository.save(p1);
         chatRoomParticipantRepository.save(p2);
 
-        // 테이블 상태 변경
-        tableRepository.findById(deviceId1).ifPresent(TableEntity::startChatting);
-        tableRepository.findById(deviceId2).ifPresent(TableEntity::startChatting);
+        // 테이블 상태 변경 + 브로드캐스트 (participant가 아직 flush 안 됐을 수 있으므로 직접 전달)
+        tableRepository.findById(deviceId1).ifPresent(table -> {
+            table.startChatting();
+            TableEntity saved = tableRepository.save(table);
+            broadcastTableWithChatInfo(saved, chatRoom.getId(), null, false, null);
+        });
+        tableRepository.findById(deviceId2).ifPresent(table -> {
+            table.startChatting();
+            TableEntity saved = tableRepository.save(table);
+            broadcastTableWithChatInfo(saved, chatRoom.getId(), null, false, null);
+        });
 
-        // 스태프 모니터에 알림
+        // 스태프 모니터에 알림 - 프론트에서 목록에 바로 추가할 수 있도록 room 데이터 포함
         webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                "type", "ROOM_CREATED",
+                "type", "CHAT_ROOM_CREATED",
                 "roomId", chatRoom.getId(),
-                "participants", List.of(
-                        Map.of("deviceId", deviceId1, "tableName", tableName1),
-                        Map.of("deviceId", deviceId2, "tableName", tableName2)
+                "room", Map.of(
+                        "id", chatRoom.getId(),
+                        "status", chatRoom.getStatus(),
+                        "startedAt", chatRoom.getStartedAt().toString(),
+                        "totalMessageCount", 0,
+                        "giftCount", 0,
+                        "reportCount", 0,
+                        "participants", List.of(
+                                Map.of("deviceId", deviceId1, "tableName", tableName1, "isMuted", false),
+                                Map.of("deviceId", deviceId2, "tableName", tableName2, "isMuted", false)
+                        ),
+                        "unreadCount", 0
                 )
         ));
 
@@ -82,10 +108,9 @@ public class ChatRoomService {
             return;
         }
 
-        chatRoom.close();
-
-        // 참여자 테이블 상태 복원 (다른 활성 채팅방이 없는 경우만)
         List<ChatRoomParticipant> participants = chatRoomParticipantRepository.findByChatRoomId(roomId);
+
+        // 참여자 테이블 상태 복원 + 상대방에게 알림
         for (ChatRoomParticipant p : participants) {
             if (chatRoomParticipantRepository.countActiveRoomsByDeviceId(p.getDeviceId()) == 0) {
                 tableRepository.findById(p.getDeviceId()).ifPresent(table -> {
@@ -95,7 +120,6 @@ public class ChatRoomService {
                 });
             }
 
-            // 상대방에게 채팅 종료 알림
             if (!p.getDeviceId().equals(leavingDeviceId)) {
                 webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
                         "type", "CHAT_CLOSED",
@@ -107,16 +131,45 @@ public class ChatRoomService {
 
         // 스태프 모니터에 알림
         webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                "type", "ROOM_CLOSED",
+                "type", "CHAT_ROOM_CLOSED",
                 "roomId", roomId
         ));
 
-        log.info("Chat room closed: roomId={}, leavingDeviceId={}", roomId, leavingDeviceId);
+        // 히스토리로 아카이브
+        String participantNames = participants.stream()
+                .map(p -> p.getTableName() + "(" + p.getDeviceId() + ")")
+                .collect(Collectors.joining(" ↔ "));
+
+        chatRoomHistoryRepository.save(ChatRoomHistory.builder()
+                .roomId(roomId)
+                .participants(participantNames)
+                .status(ChatRoomStatus.CLOSED)
+                .totalMessageCount(chatRoom.getTotalMessageCount())
+                .giftCount(chatRoom.getGiftCount())
+                .reportCount(chatRoom.getReportCount())
+                .startedAt(chatRoom.getStartedAt())
+                .closedAt(LocalDateTime.now())
+                .deleteReason("PARTICIPANT_LEFT")
+                .build());
+
+        // DB 삭제: 메시지 → 신고 → 읽기위치 → 참여자 → 방
+        chatMessageRepository.deleteByChatRoomId(roomId);
+        chatReportRepository.deleteByChatRoomId(roomId);
+        staffChatReadPositionRepository.deleteByChatRoomId(roomId);
+        chatRoomParticipantRepository.deleteByChatRoomId(roomId);
+        chatRoomRepository.delete(chatRoom);
+
+        log.info("Chat room closed and archived: roomId={}, leavingDeviceId={}", roomId, leavingDeviceId);
     }
 
     @Transactional(readOnly = true)
     public List<ChatRoom> getActiveRooms() {
         return chatRoomRepository.findByStatusOrderByStartedAtDesc(ChatRoomStatus.ACTIVE);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatRoom> getNotClosedRooms() {
+        return chatRoomRepository.findAllNotClosedOrderByStartedAtDesc();
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +189,7 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public void sanctionRoom(Long roomId, Long userId, SanctionType type, String reason) {
+    public void sanctionRoom(Long roomId, Long userId, SanctionType type, String reason, Integer durationMinutes) {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(BusinessException::chatRoomNotFound);
 
@@ -148,8 +201,8 @@ public class ChatRoomService {
 
         switch (type) {
             case WARNING -> applyWarning(chatRoom, roomId, userId, participants, reason);
-            case MUTE -> applyMute(chatRoom, roomId, userId, participants, reason);
-            case BAN -> applyBan(chatRoom, roomId, userId, participants, reason);
+            case MUTE -> applyMute(chatRoom, roomId, userId, participants, reason, durationMinutes);
+            case BAN -> applyBan(chatRoom, roomId, userId, participants, reason, durationMinutes);
         }
     }
 
@@ -169,19 +222,25 @@ public class ChatRoomService {
         }
 
         webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                "type", "ROOM_WARNING",
+                "type", "CHAT_ROOM_UPDATED",
                 "roomId", roomId,
-                "sanctionedBy", userId
+                "reason", "WARNING"
         ));
 
         log.info("Chat room warned: roomId={}, by userId={}", roomId, userId);
     }
 
     private void applyMute(ChatRoom chatRoom, Long roomId, Long userId,
-                            List<ChatRoomParticipant> participants, String reason) {
+                            List<ChatRoomParticipant> participants, String reason, Integer durationMinutes) {
+        LocalDateTime expiresAt = durationMinutes != null
+                ? LocalDateTime.now().plusMinutes(durationMinutes) : null;
+
+        chatRoom.sanction(SanctionType.MUTE, reason, expiresAt);
+
+        String durationText = durationMinutes != null ? " (" + durationMinutes + "분)" : "";
         String systemMsg = reason != null && !reason.isBlank()
-                ? "관리자에 의해 채팅이 음소거되었습니다. 사유: " + reason
-                : "관리자에 의해 채팅이 음소거되었습니다.";
+                ? "관리자에 의해 채팅이 음소거되었습니다" + durationText + ". 사유: " + reason
+                : "관리자에 의해 채팅이 음소거되었습니다" + durationText + ".";
         chatMessageService.saveSystemMessage(chatRoom, systemMsg);
 
         for (ChatRoomParticipant p : participants) {
@@ -191,26 +250,39 @@ public class ChatRoomService {
             webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
                     "type", "CHAT_MUTED_BY_STAFF",
                     "roomId", roomId,
-                    "reason", reason != null ? reason : ""
+                    "reason", reason != null ? reason : "",
+                    "expiresAt", expiresAt != null ? expiresAt.toString() : ""
             ));
         }
 
+        if (durationMinutes != null) {
+            redisTemplate.opsForValue().set(
+                    "sanction:room:" + roomId,
+                    SanctionType.MUTE.name(),
+                    Duration.ofMinutes(durationMinutes)
+            );
+        }
+
         webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                "type", "ROOM_MUTED",
+                "type", "CHAT_ROOM_UPDATED",
                 "roomId", roomId,
-                "sanctionedBy", userId
+                "reason", "MUTE"
         ));
 
-        log.info("Chat room muted: roomId={}, by userId={}", roomId, userId);
+        log.info("Chat room muted: roomId={}, by userId={}, duration={}min", roomId, userId, durationMinutes);
     }
 
     private void applyBan(ChatRoom chatRoom, Long roomId, Long userId,
-                           List<ChatRoomParticipant> participants, String reason) {
-        chatRoom.sanction();
+                           List<ChatRoomParticipant> participants, String reason, Integer durationMinutes) {
+        LocalDateTime expiresAt = durationMinutes != null
+                ? LocalDateTime.now().plusMinutes(durationMinutes) : null;
 
+        chatRoom.sanction(SanctionType.BAN, reason, expiresAt);
+
+        String durationText = durationMinutes != null ? " (" + durationMinutes + "분)" : "";
         String systemMsg = reason != null && !reason.isBlank()
-                ? "관리자에 의해 채팅이 제재되었습니다. 사유: " + reason
-                : "관리자에 의해 채팅이 제재되었습니다.";
+                ? "관리자에 의해 채팅이 제재되었습니다" + durationText + ". 사유: " + reason
+                : "관리자에 의해 채팅이 제재되었습니다" + durationText + ".";
         chatMessageService.saveSystemMessage(chatRoom, systemMsg);
 
         for (ChatRoomParticipant p : participants) {
@@ -225,17 +297,70 @@ public class ChatRoomService {
             webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
                     "type", "CHAT_SANCTIONED",
                     "roomId", roomId,
-                    "reason", reason != null ? reason : ""
+                    "sanctionType", "BAN",
+                    "reason", reason != null ? reason : "",
+                    "expiresAt", expiresAt != null ? expiresAt.toString() : ""
             ));
         }
 
+        if (durationMinutes != null) {
+            redisTemplate.opsForValue().set(
+                    "sanction:room:" + roomId,
+                    SanctionType.BAN.name(),
+                    Duration.ofMinutes(durationMinutes)
+            );
+        }
+
         webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                "type", "ROOM_SANCTIONED",
+                "type", "CHAT_ROOM_UPDATED",
                 "roomId", roomId,
-                "sanctionedBy", userId
+                "reason", "BAN"
         ));
 
-        log.info("Chat room banned: roomId={}, by userId={}", roomId, userId);
+        log.info("Chat room banned: roomId={}, by userId={}, duration={}min", roomId, userId, durationMinutes);
+    }
+
+    @Transactional
+    public void liftSanction(Long roomId) {
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(BusinessException::chatRoomNotFound);
+
+        if (chatRoom.getStatus() != ChatRoomStatus.SANCTIONED) {
+            return;
+        }
+
+        SanctionType previousType = chatRoom.getSanctionType();
+        chatRoom.liftSanction();
+
+        // MUTE 해제 시 참여자 뮤트 플래그도 해제
+        if (previousType == SanctionType.MUTE) {
+            List<ChatRoomParticipant> participants = chatRoomParticipantRepository.findByChatRoomId(roomId);
+            for (ChatRoomParticipant p : participants) {
+                p.setIsMuted(false);
+                chatRoomParticipantRepository.save(p);
+            }
+        }
+
+        String systemMsg = "제재가 해제되었습니다.";
+        chatMessageService.saveSystemMessage(chatRoom, systemMsg);
+
+        List<ChatRoomParticipant> participants = chatRoomParticipantRepository.findByChatRoomId(roomId);
+        for (ChatRoomParticipant p : participants) {
+            webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
+                    "type", "CHAT_SANCTION_LIFTED",
+                    "roomId", roomId
+            ));
+        }
+
+        // Redis TTL 키 제거
+        redisTemplate.delete("sanction:room:" + roomId);
+
+        webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
+                "type", "ROOM_SANCTION_LIFTED",
+                "roomId", roomId
+        ));
+
+        log.info("Sanction lifted: roomId={}, previousType={}", roomId, previousType);
     }
 
     @Transactional
@@ -302,6 +427,8 @@ public class ChatRoomService {
                 .reportCount(room.getReportCount())
                 .startedAt(room.getStartedAt())
                 .closedAt(room.getClosedAt())
+                .sanctionType(room.getSanctionType())
+                .sanctionReason(room.getSanctionReason())
                 .deleteReason(deleteReason)
                 .build());
 
@@ -336,14 +463,16 @@ public class ChatRoomService {
     }
 
     /**
-     * 디바이스가 참여 중인 ACTIVE 채팅방 스냅샷 조회 (sync용)
+     * 디바이스가 참여 중인 전체 채팅방 스냅샷 조회 (sync용)
+     * ACTIVE / CLOSED / SANCTIONED 모두 포함
      */
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getActiveChatRoomsSnapshot(String deviceId) {
-        List<ChatRoomParticipant> myParticipations = chatRoomParticipantRepository.findActiveByDeviceId(deviceId);
+    public List<Map<String, Object>> getChatRoomsSnapshot(String deviceId) {
+        List<ChatRoomParticipant> myParticipations = chatRoomParticipantRepository.findAllWithChatRoomByDeviceId(deviceId);
 
         return myParticipations.stream().map(myP -> {
-            Long roomId = myP.getChatRoom().getId();
+            ChatRoom chatRoom = myP.getChatRoom();
+            Long roomId = chatRoom.getId();
 
             // 상대방 찾기
             ChatRoomParticipant partner = chatRoomParticipantRepository.findByChatRoomId(roomId).stream()
@@ -372,17 +501,72 @@ public class ChatRoomService {
 
             Map<String, Object> room = new java.util.LinkedHashMap<>();
             room.put("roomId", roomId);
+            room.put("status", chatRoom.getStatus());
             room.put("partnerDeviceId", partner != null ? partner.getDeviceId() : null);
             room.put("partnerTableName", partner != null ? partner.getTableName() : null);
             room.put("messages", messages);
+            if (chatRoom.getStatus() == ChatRoomStatus.SANCTIONED) {
+                room.put("sanctionType", chatRoom.getSanctionType());
+                room.put("sanctionReason", chatRoom.getSanctionReason());
+                room.put("sanctionExpiresAt", chatRoom.getSanctionExpiresAt() != null
+                        ? chatRoom.getSanctionExpiresAt().toString() : null);
+            }
             return room;
         }).toList();
     }
 
+    /**
+     * 디바이스 목록에 대한 채팅 상태 배치 조회
+     */
+    @Transactional(readOnly = true)
+    public Map<String, ChatStatusInfo> getChatStatusByDeviceIds(List<String> deviceIds) {
+        if (deviceIds.isEmpty()) return Map.of();
+
+        List<ChatRoomParticipant> participants =
+                chatRoomParticipantRepository.findActiveOrSanctionedByDeviceIds(deviceIds);
+
+        Map<String, ChatStatusInfo> result = new java.util.HashMap<>();
+        for (ChatRoomParticipant p : participants) {
+            ChatRoom room = p.getChatRoom();
+            SanctionType type = (room.getStatus() == ChatRoomStatus.SANCTIONED)
+                    ? room.getSanctionType() : null;
+            LocalDateTime expiresAt = (room.getStatus() == ChatRoomStatus.SANCTIONED)
+                    ? room.getSanctionExpiresAt() : null;
+            // MUTE는 SANCTIONED가 아니어도 개별 참여자에게 적용될 수 있음
+            if (room.getSanctionType() == SanctionType.MUTE) {
+                type = SanctionType.MUTE;
+                expiresAt = room.getSanctionExpiresAt();
+            }
+            result.put(p.getDeviceId(), new ChatStatusInfo(room.getId(), type, p.getIsMuted(), expiresAt));
+        }
+        return result;
+    }
+
+    public record ChatStatusInfo(Long chatRoomId, SanctionType sanctionType, Boolean isMuted, LocalDateTime sanctionExpiresAt) {}
+
     private void broadcastTableUpdated(TableEntity table) {
+        // 채팅 상태 포함하여 브로드캐스트
+        Map<String, ChatStatusInfo> statusMap = getChatStatusByDeviceIds(List.of(table.getId()));
+        ChatStatusInfo info = statusMap.get(table.getId());
+
+        TableListResponse data = info != null
+                ? TableListResponse.from(table, info.chatRoomId(), info.sanctionType(), info.isMuted(), info.sanctionExpiresAt())
+                : TableListResponse.from(table);
+
         webSocketSenderService.broadcast("tables", Map.of(
                 "type", "TABLE_UPDATED",
-                "data", TableListResponse.from(table),
+                "data", data,
+                "timestamp", java.time.LocalDateTime.now().toString()
+        ));
+    }
+
+    private void broadcastTableWithChatInfo(TableEntity table, Long chatRoomId,
+                                             SanctionType sanctionType, Boolean isMuted,
+                                             LocalDateTime sanctionExpiresAt) {
+        TableListResponse data = TableListResponse.from(table, chatRoomId, sanctionType, isMuted, sanctionExpiresAt);
+        webSocketSenderService.broadcast("tables", Map.of(
+                "type", "TABLE_UPDATED",
+                "data", data,
                 "timestamp", java.time.LocalDateTime.now().toString()
         ));
     }

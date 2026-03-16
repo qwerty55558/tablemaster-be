@@ -42,10 +42,16 @@ public class ChatEventConsumer {
                 ChatMessage savedMessage = chatMessageService.saveMessage(chatRoom, event);
                 chatRoomRepository.save(chatRoom);
 
-                // 3. 스태프 모니터 - 목록 갱신용
+                // 3. 스태프 모니터 - 새 메시지 알림
                 webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                        "type", "ROOM_UPDATED",
+                        "type", "CHAT_NEW_MESSAGE",
                         "roomId", event.roomId(),
+                        "messageId", savedMessage.getId(),
+                        "senderDeviceId", event.senderDeviceId() != null ? event.senderDeviceId() : "",
+                        "senderTableName", event.senderTableName() != null ? event.senderTableName() : "",
+                        "content", event.message() != null ? event.message() : "",
+                        "messageType", event.messageType() != null ? event.messageType() : "TEXT",
+                        "createdAt", savedMessage.getCreatedAt().toString(),
                         "totalMessageCount", chatRoom.getTotalMessageCount(),
                         "giftCount", chatRoom.getGiftCount()
                 ));

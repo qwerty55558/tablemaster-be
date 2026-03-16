@@ -1,5 +1,6 @@
 package com.mycompany.tablemaster.dto.table;
 
+import com.mycompany.tablemaster.entity.SanctionType;
 import com.mycompany.tablemaster.entity.TableEntity;
 import com.mycompany.tablemaster.entity.TableStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,6 +50,18 @@ public class TableListResponse {
     @Schema(description = "마지막 업데이트 시간")
     private LocalDateTime updatedAt;
 
+    @Schema(description = "활성 채팅방 ID", example = "1")
+    private Long chatRoomId;
+
+    @Schema(description = "채팅방 제재 타입 (ACTIVE 채팅방이 제재된 경우)", example = "MUTE")
+    private SanctionType chatSanctionType;
+
+    @Schema(description = "채팅 음소거 여부", example = "false")
+    private Boolean isChatMuted;
+
+    @Schema(description = "채팅 제재 만료 시간")
+    private LocalDateTime chatSanctionExpiresAt;
+
     public static TableListResponse from(TableEntity table) {
         return TableListResponse.builder()
                 .id(table.getId())
@@ -63,6 +76,31 @@ public class TableListResponse {
                 .isChatting(table.getIsChatting())
                 .createdAt(table.getCreatedAt())
                 .updatedAt(table.getUpdatedAt())
+                .build();
+    }
+
+    public static TableListResponse from(TableEntity table,
+                                          Long chatRoomId,
+                                          SanctionType chatSanctionType,
+                                          Boolean isChatMuted,
+                                          LocalDateTime chatSanctionExpiresAt) {
+        return TableListResponse.builder()
+                .id(table.getId())
+                .name(table.getName())
+                .deviceName(table.getDeviceName())
+                .status(table.getStatus())
+                .location(table.getLocation())
+                .guestCount(table.getGuestCount())
+                .femaleCount(table.getFemaleCount())
+                .maleCount(table.getMaleCount())
+                .isChatEnabled(table.getIsChatEnabled())
+                .isChatting(table.getIsChatting())
+                .createdAt(table.getCreatedAt())
+                .updatedAt(table.getUpdatedAt())
+                .chatRoomId(chatRoomId)
+                .chatSanctionType(chatSanctionType)
+                .isChatMuted(isChatMuted)
+                .chatSanctionExpiresAt(chatSanctionExpiresAt)
                 .build();
     }
 }

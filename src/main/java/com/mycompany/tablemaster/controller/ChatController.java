@@ -2,6 +2,7 @@ package com.mycompany.tablemaster.controller;
 
 import com.mycompany.tablemaster.dto.chat.*;
 import com.mycompany.tablemaster.entity.ChatRoom;
+import com.mycompany.tablemaster.entity.ChatRoomStatus;
 import com.mycompany.tablemaster.entity.TableEntity;
 import com.mycompany.tablemaster.event.ChatEvent;
 import com.mycompany.tablemaster.exception.BusinessException;
@@ -50,6 +51,15 @@ public class ChatController {
             return;
         }
 
+        // 이미 진행 중인 채팅방이 있는지 확인
+        if (chatRoomService.hasActiveRoomBetween(senderDeviceId, targetDeviceId)) {
+            webSocketSenderService.sendChatToDevice(senderDeviceId, Map.of(
+                    "type", "CHAT_REQUEST_FAILED",
+                    "reason", "이미 상대방과 진행 중인 채팅방이 있습니다"
+            ));
+            return;
+        }
+
         // 상대방에게 채팅 요청 전송
         webSocketSenderService.sendChatToDevice(targetDeviceId, Map.of(
                 "type", "CHAT_REQUEST",
@@ -73,6 +83,15 @@ public class ChatController {
                 .orElseThrow(BusinessException::tableNotFound);
         TableEntity requesterTable = tableRepository.findById(requesterDeviceId)
                 .orElseThrow(BusinessException::tableNotFound);
+
+        // 이미 진행 중인 채팅방이 있는지 확인
+        if (chatRoomService.hasActiveRoomBetween(acceptorDeviceId, requesterDeviceId)) {
+            webSocketSenderService.sendChatToDevice(acceptorDeviceId, Map.of(
+                    "type", "CHAT_REQUEST_FAILED",
+                    "reason", "이미 상대방과 진행 중인 채팅방이 있습니다"
+            ));
+            return;
+        }
 
         // 채팅방 생성
         ChatRoom chatRoom = chatRoomService.createRoom(
@@ -129,6 +148,17 @@ public class ChatController {
     public void handleChatLeave(ChatLeaveMessage message, Principal principal) {
         String deviceId = principal.getName();
         Long roomId = message.getRoomId();
+
+        // 제재된 방은 퇴장 불가
+        ChatRoom chatRoom = chatRoomService.getRoomDetail(roomId);
+        if (chatRoom.getStatus() == ChatRoomStatus.SANCTIONED) {
+            webSocketSenderService.sendChatToDevice(deviceId, Map.of(
+                    "type", "CHAT_ERROR",
+                    "code", "CHAT_SANCTIONED",
+                    "reason", "제재된 채팅방에서는 퇴장할 수 없습니다"
+            ));
+            return;
+        }
 
         TableEntity table = tableRepository.findById(deviceId)
                 .orElseThrow(BusinessException::tableNotFound);

@@ -61,8 +61,8 @@ public class SyncController {
             log.debug("Sync: {} notifications sent to device {}", response.getNotifications().size(), deviceId);
         }
 
-        // 활성 채팅방 스냅샷 전송 → /queue/chat
-        List<Map<String, Object>> chatRooms = chatRoomService.getActiveChatRoomsSnapshot(deviceId);
+        // 채팅방 스냅샷 전송 → /queue/chat (ACTIVE + CLOSED + SANCTIONED)
+        List<Map<String, Object>> chatRooms = chatRoomService.getChatRoomsSnapshot(deviceId);
         messagingTemplate.convertAndSendToUser(
                 deviceId,
                 "/queue/chat",
@@ -71,7 +71,7 @@ public class SyncController {
                         "rooms", chatRooms
                 )
         );
-        log.debug("Sync: {} active chat rooms sent to device {}", chatRooms.size(), deviceId);
+        log.debug("Sync: {} chat rooms sent to device {}", chatRooms.size(), deviceId);
 
         // 재연결 시 활성 테이블이 있으면 웹 클라이언트에 브로드캐스트
         if (response.getTable() != null) {

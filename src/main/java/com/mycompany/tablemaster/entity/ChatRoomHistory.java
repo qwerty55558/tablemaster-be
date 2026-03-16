@@ -47,6 +47,13 @@ public class ChatRoomHistory {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sanction_type")
+    private SanctionType sanctionType;
+
+    @Column(name = "sanction_reason")
+    private String sanctionReason;
+
     @Column(name = "delete_reason", nullable = false)
     private String deleteReason;
 
@@ -58,7 +65,8 @@ public class ChatRoomHistory {
     @Builder
     public ChatRoomHistory(Long roomId, String participants, ChatRoomStatus status,
                            Integer totalMessageCount, Integer giftCount, Integer reportCount,
-                           LocalDateTime startedAt, LocalDateTime closedAt, String deleteReason) {
+                           LocalDateTime startedAt, LocalDateTime closedAt,
+                           SanctionType sanctionType, String sanctionReason, String deleteReason) {
         this.roomId = roomId;
         this.participants = participants;
         this.status = status;
@@ -67,6 +75,8 @@ public class ChatRoomHistory {
         this.reportCount = reportCount;
         this.startedAt = startedAt;
         this.closedAt = closedAt;
+        this.sanctionType = sanctionType;
+        this.sanctionReason = sanctionReason;
         this.deleteReason = deleteReason;
     }
 }

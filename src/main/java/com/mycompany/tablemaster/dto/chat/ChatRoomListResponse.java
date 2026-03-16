@@ -3,6 +3,7 @@ package com.mycompany.tablemaster.dto.chat;
 import com.mycompany.tablemaster.entity.ChatRoom;
 import com.mycompany.tablemaster.entity.ChatRoomParticipant;
 import com.mycompany.tablemaster.entity.ChatRoomStatus;
+import com.mycompany.tablemaster.entity.SanctionType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,6 +16,9 @@ public class ChatRoomListResponse {
 
     private Long id;
     private ChatRoomStatus status;
+    private SanctionType sanctionType;
+    private String sanctionReason;
+    private LocalDateTime sanctionExpiresAt;
     private LocalDateTime startedAt;
     private LocalDateTime closedAt;
     private Integer totalMessageCount;
@@ -43,6 +47,9 @@ public class ChatRoomListResponse {
         return ChatRoomListResponse.builder()
                 .id(room.getId())
                 .status(room.getStatus())
+                .sanctionType(room.getSanctionType())
+                .sanctionReason(room.getSanctionReason())
+                .sanctionExpiresAt(room.getSanctionExpiresAt())
                 .startedAt(room.getStartedAt())
                 .closedAt(room.getClosedAt())
                 .totalMessageCount(room.getTotalMessageCount())

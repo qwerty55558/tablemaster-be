@@ -101,13 +101,16 @@ CREATE TABLE IF NOT EXISTS table_history (
 
 -- 채팅방
 CREATE TABLE IF NOT EXISTS chat_rooms (
-    id                  BIGSERIAL   PRIMARY KEY,
-    status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    id                  BIGSERIAL    PRIMARY KEY,
+    status              VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
+    sanction_type       VARCHAR(20),
+    sanction_reason     VARCHAR(500),
+    sanction_expires_at TIMESTAMP,
     started_at          TIMESTAMP,
     closed_at           TIMESTAMP,
-    total_message_count INTEGER     NOT NULL DEFAULT 0,
-    gift_count          INTEGER     NOT NULL DEFAULT 0,
-    report_count        INTEGER     NOT NULL DEFAULT 0
+    total_message_count INTEGER      NOT NULL DEFAULT 0,
+    gift_count          INTEGER      NOT NULL DEFAULT 0,
+    report_count        INTEGER      NOT NULL DEFAULT 0
 );
 
 -- 채팅방 참여자
@@ -148,6 +151,8 @@ CREATE TABLE IF NOT EXISTS chat_room_histories (
     room_id             BIGINT       NOT NULL,
     participants        VARCHAR(255) NOT NULL,
     status              VARCHAR(20)  NOT NULL,
+    sanction_type       VARCHAR(20),
+    sanction_reason     VARCHAR(500),
     total_message_count INTEGER      NOT NULL,
     gift_count          INTEGER      NOT NULL,
     report_count        INTEGER      NOT NULL,

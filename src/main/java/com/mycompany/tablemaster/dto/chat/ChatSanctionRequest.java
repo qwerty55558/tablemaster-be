@@ -11,4 +11,5 @@ public class ChatSanctionRequest {
     @NotNull
     private SanctionType type;
     private String reason;
+    private Integer durationMinutes;
 }

@@ -145,6 +145,10 @@ public class BusinessException extends RuntimeException {
         return new BusinessException("활성 채팅방이 없습니다", HttpStatus.NOT_FOUND, "CHAT_007");
     }
 
+    public static BusinessException chatRoomAlreadyExists() {
+        return new BusinessException("이미 상대방과 진행 중인 채팅방이 있습니다", HttpStatus.CONFLICT, "CHAT_008");
+    }
+
     public static BusinessException tableNotFound() {
         return new BusinessException("테이블을 찾을 수 없습니다", HttpStatus.NOT_FOUND, "TABLE_001");
     }

@@ -23,6 +23,16 @@ public class ChatRoom {
     @Column(nullable = false)
     private ChatRoomStatus status = ChatRoomStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sanction_type")
+    private SanctionType sanctionType;
+
+    @Column(name = "sanction_reason")
+    private String sanctionReason;
+
+    @Column(name = "sanction_expires_at")
+    private LocalDateTime sanctionExpiresAt;
+
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
@@ -56,9 +66,20 @@ public class ChatRoom {
         this.closedAt = LocalDateTime.now();
     }
 
-    public void sanction() {
+    public void sanction(SanctionType sanctionType, String reason, LocalDateTime expiresAt) {
         this.status = ChatRoomStatus.SANCTIONED;
+        this.sanctionType = sanctionType;
+        this.sanctionReason = reason;
+        this.sanctionExpiresAt = expiresAt;
         this.closedAt = LocalDateTime.now();
+    }
+
+    public void liftSanction() {
+        this.status = ChatRoomStatus.ACTIVE;
+        this.sanctionType = null;
+        this.sanctionReason = null;
+        this.sanctionExpiresAt = null;
+        this.closedAt = null;
     }
 
     public void incrementMessageCount() {

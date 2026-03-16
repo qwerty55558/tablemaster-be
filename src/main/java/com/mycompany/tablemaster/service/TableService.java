@@ -43,10 +43,20 @@ public class TableService {
 
     /**
      * 모든 테이블 조회 (AVAILABLE, DELETED 제외 / INACTIVE 포함)
+     * 채팅 제재/음소거 상태 포함
      */
     public List<TableListResponse> getAllTables() {
-        return tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.DELETED)).stream()
-                .map(TableListResponse::from)
+        List<TableEntity> tables = tableRepository.findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.DELETED));
+        List<String> deviceIds = tables.stream().map(TableEntity::getId).toList();
+        Map<String, ChatRoomService.ChatStatusInfo> chatStatusMap = chatRoomService.getChatStatusByDeviceIds(deviceIds);
+
+        return tables.stream()
+                .map(t -> {
+                    ChatRoomService.ChatStatusInfo info = chatStatusMap.get(t.getId());
+                    return info != null
+                            ? TableListResponse.from(t, info.chatRoomId(), info.sanctionType(), info.isMuted(), info.sanctionExpiresAt())
+                            : TableListResponse.from(t);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -283,12 +293,12 @@ public class TableService {
     }
 
     /**
-     * 단일 테이블 추가 브로드캐스트
+     * 단일 테이블 추가 브로드캐스트 (채팅 상태 포함)
      */
     public void broadcastTableAdded(TableEntity table) {
         Map<String, Object> payload = Map.of(
                 "type", "TABLE_ADDED",
-                "data", TableListResponse.from(table),
+                "data", enrichWithChatStatus(table),
                 "timestamp", LocalDateTime.now().toString()
         );
         webSocketSenderService.broadcast("tables", payload);
@@ -296,16 +306,25 @@ public class TableService {
     }
 
     /**
-     * 단일 테이블 수정 브로드캐스트
+     * 단일 테이블 수정 브로드캐스트 (채팅 상태 포함)
      */
     public void broadcastTableUpdated(TableEntity table) {
         Map<String, Object> payload = Map.of(
                 "type", "TABLE_UPDATED",
-                "data", TableListResponse.from(table),
+                "data", enrichWithChatStatus(table),
                 "timestamp", LocalDateTime.now().toString()
         );
         webSocketSenderService.broadcast("tables", payload);
         log.debug("Table updated broadcasted: id={}", table.getId());
+    }
+
+    private TableListResponse enrichWithChatStatus(TableEntity table) {
+        Map<String, ChatRoomService.ChatStatusInfo> statusMap =
+                chatRoomService.getChatStatusByDeviceIds(List.of(table.getId()));
+        ChatRoomService.ChatStatusInfo info = statusMap.get(table.getId());
+        return info != null
+                ? TableListResponse.from(table, info.chatRoomId(), info.sanctionType(), info.isMuted(), info.sanctionExpiresAt())
+                : TableListResponse.from(table);
     }
 
     /**

@@ -47,15 +47,15 @@ public class StaffChatController {
 
         // 필터 적용
         if ("REPORT".equalsIgnoreCase(filter)) {
-            rooms = chatRoomService.getActiveRooms().stream()
+            rooms = chatRoomService.getNotClosedRooms().stream()
                     .filter(r -> r.getReportCount() > 0)
                     .toList();
         } else if ("GIFT".equalsIgnoreCase(filter)) {
-            rooms = chatRoomService.getActiveRooms().stream()
+            rooms = chatRoomService.getNotClosedRooms().stream()
                     .filter(r -> r.getGiftCount() > 0)
                     .toList();
         } else {
-            rooms = chatRoomService.getActiveRooms();
+            rooms = chatRoomService.getNotClosedRooms();
         }
 
         Long userId = principal.getUserId();
@@ -131,7 +131,17 @@ public class StaffChatController {
             @RequestBody ChatSanctionRequest request,
             @AuthenticationPrincipal UserAuthPrincipal principal) {
 
-        chatRoomService.sanctionRoom(id, principal.getUserId(), request.getType(), request.getReason());
+        chatRoomService.sanctionRoom(id, principal.getUserId(), request.getType(), request.getReason(), request.getDurationMinutes());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 제재 해제
+     * DELETE /api/v1/staff/chat/rooms/{id}/sanction
+     */
+    @DeleteMapping("/rooms/{id}/sanction")
+    public ResponseEntity<Void> liftSanction(@PathVariable Long id) {
+        chatRoomService.liftSanction(id);
         return ResponseEntity.ok().build();
     }
 
@@ -145,7 +155,7 @@ public class StaffChatController {
             @RequestBody ChatMuteRequest request) {
 
         boolean isMuted = chatRoomService.toggleMute(id, request.getDeviceId());
-        return ResponseEntity.ok(Map.of("isMuted", isMuted));
+        return ResponseEntity.ok(Map.of(request.getDeviceId(), isMuted));
     }
 
     /**

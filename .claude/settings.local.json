@@ -54,7 +54,9 @@
       "Bash(echo $DOCKER_HOST)",
       "Read(//Users/personal-ai/.colima/default/**)",
       "Bash(colima status:*)",
-      "Bash(colima-build 2>&1; colima-dev 2>&1)"
+      "Bash(colima-build 2>&1; colima-dev 2>&1)",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
