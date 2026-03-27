@@ -25,6 +25,9 @@ public class GiftType {
     @Column(nullable = false)
     private Integer price;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(name = "is_available", nullable = false)
     private Boolean isAvailable = true;
 }

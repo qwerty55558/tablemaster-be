@@ -8,7 +8,10 @@ import com.mycompany.tablemaster.event.ChatEvent;
 import com.mycompany.tablemaster.exception.BusinessException;
 import com.mycompany.tablemaster.messaging.producer.ChatEventProducer;
 import com.mycompany.tablemaster.repository.TableRepository;
+import com.mycompany.tablemaster.service.AnalyticsLogService;
 import com.mycompany.tablemaster.service.ChatRoomService;
+import com.mycompany.tablemaster.service.CommerceService;
+import com.mycompany.tablemaster.service.ForbiddenWordService;
 import com.mycompany.tablemaster.service.WebSocketSenderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +30,10 @@ public class ChatController {
     private final ChatRoomService chatRoomService;
     private final ChatEventProducer chatEventProducer;
     private final TableRepository tableRepository;
+    private final AnalyticsLogService analyticsLogService;
+    private final ForbiddenWordService forbiddenWordService;
     private final WebSocketSenderService webSocketSenderService;
+    private final CommerceService commerceService;
 
     /**
      * 채팅 요청
@@ -51,12 +57,12 @@ public class ChatController {
             return;
         }
 
-        // 이미 진행 중인 채팅방이 있는지 확인
-        if (chatRoomService.hasActiveRoomBetween(senderDeviceId, targetDeviceId)) {
-            webSocketSenderService.sendChatToDevice(senderDeviceId, Map.of(
-                    "type", "CHAT_REQUEST_FAILED",
-                    "reason", "이미 상대방과 진행 중인 채팅방이 있습니다"
-            ));
+        ChatRoom reusableRoom = chatRoomService.findReusableRoomBetween(senderDeviceId, targetDeviceId).orElse(null);
+        if (reusableRoom != null) {
+            sendChatAccepted(senderDeviceId, reusableRoom.getId(), targetDeviceId, targetTable.getName());
+            sendChatAccepted(targetDeviceId, reusableRoom.getId(), senderDeviceId, senderTable.getName());
+            analyticsLogService.logChatRoomRemapped(reusableRoom, senderDeviceId, targetDeviceId);
+            log.info("Chat room remapped on request: roomId={}, {} ↔ {}", reusableRoom.getId(), senderTable.getName(), targetTable.getName());
             return;
         }
 
@@ -84,37 +90,20 @@ public class ChatController {
         TableEntity requesterTable = tableRepository.findById(requesterDeviceId)
                 .orElseThrow(BusinessException::tableNotFound);
 
-        // 이미 진행 중인 채팅방이 있는지 확인
-        if (chatRoomService.hasActiveRoomBetween(acceptorDeviceId, requesterDeviceId)) {
-            webSocketSenderService.sendChatToDevice(acceptorDeviceId, Map.of(
-                    "type", "CHAT_REQUEST_FAILED",
-                    "reason", "이미 상대방과 진행 중인 채팅방이 있습니다"
-            ));
-            return;
+        ChatRoom reusableRoom = chatRoomService.findReusableRoomBetween(acceptorDeviceId, requesterDeviceId).orElse(null);
+        ChatRoom chatRoom = reusableRoom != null
+                ? reusableRoom
+                : chatRoomService.createRoom(
+                        requesterDeviceId, requesterTable.getName(),
+                        acceptorDeviceId, acceptorTable.getName()
+                );
+
+        if (reusableRoom != null) {
+            analyticsLogService.logChatRoomRemapped(chatRoom, acceptorDeviceId, requesterDeviceId);
         }
 
-        // 채팅방 생성
-        ChatRoom chatRoom = chatRoomService.createRoom(
-                requesterDeviceId, requesterTable.getName(),
-                acceptorDeviceId, acceptorTable.getName()
-        );
-
-        // 양쪽에 채팅 수락 알림
-        Map<String, Object> acceptPayload = Map.of(
-                "type", "CHAT_ACCEPTED",
-                "roomId", chatRoom.getId(),
-                "partnerDeviceId", acceptorDeviceId,
-                "partnerTableName", acceptorTable.getName()
-        );
-        webSocketSenderService.sendChatToDevice(requesterDeviceId, acceptPayload);
-
-        Map<String, Object> acceptPayload2 = Map.of(
-                "type", "CHAT_ACCEPTED",
-                "roomId", chatRoom.getId(),
-                "partnerDeviceId", requesterDeviceId,
-                "partnerTableName", requesterTable.getName()
-        );
-        webSocketSenderService.sendChatToDevice(acceptorDeviceId, acceptPayload2);
+        sendChatAccepted(requesterDeviceId, chatRoom.getId(), acceptorDeviceId, acceptorTable.getName());
+        sendChatAccepted(acceptorDeviceId, chatRoom.getId(), requesterDeviceId, requesterTable.getName());
 
         log.info("Chat accepted: roomId={}, {} ↔ {}", chatRoom.getId(), requesterTable.getName(), acceptorTable.getName());
     }
@@ -194,6 +183,8 @@ public class ChatController {
             return;
         }
 
+        forbiddenWordService.validateMessage(message.getContent());
+
         // RabbitMQ로 이벤트 발행
         ChatEvent event = ChatEvent.message(message.getRoomId(), deviceId, table.getName(), message.getContent());
         chatEventProducer.sendMessage(event);
@@ -210,6 +201,8 @@ public class ChatController {
         TableEntity table = tableRepository.findById(deviceId)
                 .orElseThrow(BusinessException::tableNotFound);
 
+        commerceService.recordGiftOrder(deviceId, message.getRoomId(), message.getGiftType());
+
         ChatEvent event = ChatEvent.gift(message.getRoomId(), deviceId, table.getName(), message.getGiftType());
         chatEventProducer.sendMessage(event);
 
@@ -222,6 +215,15 @@ public class ChatController {
                 "type", "CHAT_ERROR",
                 "code", ex.getCode(),
                 "reason", ex.getMessage()
+        ));
+    }
+
+    private void sendChatAccepted(String deviceId, Long roomId, String partnerDeviceId, String partnerTableName) {
+        webSocketSenderService.sendChatToDevice(deviceId, Map.of(
+                "type", "CHAT_ACCEPTED",
+                "roomId", roomId,
+                "partnerDeviceId", partnerDeviceId,
+                "partnerTableName", partnerTableName
         ));
     }
 }

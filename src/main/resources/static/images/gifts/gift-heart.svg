@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#31131b"/>
+  <path d="M300 315 142 166c-28-27-28-71 0-98 28-27 74-27 102 0l56 54 56-54c28-27 74-27 102 0 28 27 28 71 0 98z" fill="#ef5f7d"/>
+  <text x="300" y="360" font-family="Verdana, sans-serif" font-size="34" fill="#ffdbe3" text-anchor="middle">HEART</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#2d2414"/>
+  <path d="M220 100h120v190c0 20-16 36-36 36h-48c-20 0-36-16-36-36z" fill="#efbd4a"/>
+  <path d="M220 100h120v38H220z" fill="#fff7df"/>
+  <path d="M340 145h32c22 0 40 18 40 40v38c0 22-18 40-40 40h-32" fill="none" stroke="#fff7df" stroke-width="18"/>
+  <text x="300" y="360" font-family="Verdana, sans-serif" font-size="34" fill="#ffeeb7" text-anchor="middle">BEER</text>
+</svg>

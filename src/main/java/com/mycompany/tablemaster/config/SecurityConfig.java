@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/ws/**").permitAll()  // WebSocket (인증은 STOMP 레벨에서 처리)
+                        .requestMatchers("/images/**").permitAll()  // 정적 리소스 (SVG 등)
 
                         // 역할별 접근 제어
                         // 디바이스 목록/상세 조회는 STAFF도 허용

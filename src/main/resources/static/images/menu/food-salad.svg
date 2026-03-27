@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#18351f"/>
+  <ellipse cx="300" cy="215" rx="155" ry="95" fill="#f2f2ec"/>
+  <circle cx="245" cy="190" r="36" fill="#7ec850"/>
+  <circle cx="335" cy="185" r="34" fill="#66b34e"/>
+  <circle cx="290" cy="225" r="38" fill="#93d65b"/>
+  <circle cx="365" cy="225" r="26" fill="#d94a45"/>
+  <circle cx="225" cy="235" r="22" fill="#d94a45"/>
+  <text x="300" y="355" font-family="Verdana, sans-serif" font-size="34" fill="#e5f8d1" text-anchor="middle">SALAD</text>
+</svg>

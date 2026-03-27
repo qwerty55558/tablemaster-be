@@ -2,7 +2,6 @@ package com.mycompany.tablemaster.repository;
 
 import com.mycompany.tablemaster.entity.TableHistory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,5 +15,5 @@ public interface TableHistoryRepository extends JpaRepository<TableHistory, Long
 
     List<TableHistory> findByName(String name);
 
-    Page<TableHistory> findByDeletedAtAfterOrderByDeletedAtDesc(LocalDateTime after, Pageable pageable);
+    List<TableHistory> findByDeletedAtAfterOrderByDeletedAtDesc(LocalDateTime after);
 }

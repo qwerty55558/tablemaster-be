@@ -29,6 +29,9 @@ public class MenuItem {
     @Column(nullable = false)
     private MenuCategory category;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(name = "is_available", nullable = false)
     private Boolean isAvailable = true;
 
@@ -50,10 +53,11 @@ public class MenuItem {
     }
 
     @Builder
-    public MenuItem(String name, Integer price, MenuCategory category, Boolean isAvailable) {
+    public MenuItem(String name, Integer price, MenuCategory category, String imageUrl, Boolean isAvailable) {
         this.name = name;
         this.price = price;
         this.category = category;
+        this.imageUrl = imageUrl;
         this.isAvailable = isAvailable != null ? isAvailable : true;
     }
 }

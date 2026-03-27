@@ -3,6 +3,7 @@ package com.mycompany.tablemaster.service;
 import com.mycompany.tablemaster.entity.*;
 import com.mycompany.tablemaster.exception.BusinessException;
 import com.mycompany.tablemaster.repository.ChatReportRepository;
+import com.mycompany.tablemaster.repository.ChatRoomParticipantRepository;
 import com.mycompany.tablemaster.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,10 @@ public class ChatReportService {
 
     private final ChatReportRepository chatReportRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomParticipantRepository chatRoomParticipantRepository;
+    private final ChatModerationHistoryService chatModerationHistoryService;
     private final WebSocketSenderService webSocketSenderService;
+    private final AnalyticsLogService analyticsLogService;
 
     @Transactional
     public ChatReport createReport(Long chatRoomId, String reporterDeviceId,
@@ -27,25 +31,61 @@ public class ChatReportService {
         ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(BusinessException::chatRoomNotFound);
 
+        if (reporterDeviceId.equals(reportedDeviceId)) {
+            throw BusinessException.chatReportSelfNotAllowed();
+        }
+
+        ChatRoomParticipant reporterParticipant = chatRoomParticipantRepository
+                .findByChatRoomIdAndDeviceId(chatRoomId, reporterDeviceId)
+                .orElseThrow(BusinessException::chatReportParticipantMismatch);
+        ChatRoomParticipant reportedParticipant = chatRoomParticipantRepository
+                .findByChatRoomIdAndDeviceId(chatRoomId, reportedDeviceId)
+                .orElseThrow(BusinessException::chatReportParticipantMismatch);
+
+        if (chatReportRepository.existsByChatRoomIdAndReporterDeviceIdAndReportedDeviceIdAndStatus(
+                chatRoomId, reporterDeviceId, reportedDeviceId, ChatReportStatus.PENDING
+        )) {
+            throw BusinessException.chatReportAlreadyPending();
+        }
+
         ChatReport report = ChatReport.builder()
                 .chatRoom(chatRoom)
                 .reporterDeviceId(reporterDeviceId)
+                .reporterTableName(reporterParticipant.getTableName())
                 .reportedDeviceId(reportedDeviceId)
+                .reportedTableName(reportedParticipant.getTableName())
                 .reason(reason)
                 .build();
 
         ChatReport saved = chatReportRepository.save(report);
-        chatRoom.incrementReportCount();
-        chatRoomRepository.save(chatRoom);
+        chatRoomRepository.incrementReportCount(chatRoom.getId());
+        ChatRoom refreshedRoom = chatRoomRepository.findById(chatRoomId).orElse(chatRoom);
 
-        // 스태프에게 신고 알림
-        webSocketSenderService.broadcast("staff.chat.monitor", Map.of(
-                "type", "REPORT_CREATED",
-                "roomId", chatRoomId,
-                "reportCount", chatRoom.getReportCount()
-        ));
+        Map<String, Object> reportPayload = Map.ofEntries(
+                Map.entry("type", "REPORT_CREATED"),
+                Map.entry("reportId", saved.getId()),
+                Map.entry("roomId", chatRoomId),
+                Map.entry("reporterDeviceId", reporterDeviceId),
+                Map.entry("reporterTableName", saved.getReporterTableName()),
+                Map.entry("reportedDeviceId", reportedDeviceId),
+                Map.entry("reportedTableName", saved.getReportedTableName()),
+                Map.entry("reason", reason),
+                Map.entry("status", saved.getStatus().name()),
+                Map.entry("createdAt", saved.getCreatedAt().toString()),
+                Map.entry("reportCount", refreshedRoom.getReportCount())
+        );
 
-        log.info("Chat report created: roomId={}, reporter={}, reported={}", chatRoomId, reporterDeviceId, reportedDeviceId);
+        // 관리자 모니터 실시간 갱신
+        webSocketSenderService.broadcast("staff.chat.monitor", reportPayload);
+
+        analyticsLogService.logChatReportCreated(chatRoom, saved);
+
+        log.info("Chat report created: roomId={}, reporter={}({}), reported={}({})",
+                chatRoomId,
+                reporterDeviceId,
+                saved.getReporterTableName(),
+                reportedDeviceId,
+                saved.getReportedTableName());
         return saved;
     }
 
@@ -56,6 +96,12 @@ public class ChatReportService {
 
         report.review(userId, status);
         chatReportRepository.save(report);
+        String tableNames = chatRoomParticipantRepository.findByChatRoomId(report.getChatRoom().getId()).stream()
+                .map(ChatRoomParticipant::getTableName)
+                .distinct()
+                .reduce((left, right) -> left + " ↔ " + right)
+                .orElse("UNKNOWN");
+        chatModerationHistoryService.recordReportReview(report, tableNames, userId, status);
 
         log.info("Chat report reviewed: reportId={}, status={}, reviewedBy={}", reportId, status, userId);
         return report;

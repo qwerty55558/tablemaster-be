@@ -56,7 +56,11 @@
       "Bash(colima status:*)",
       "Bash(colima-build 2>&1; colima-dev 2>&1)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(colima stop:*)",
+      "Bash(rm:*)",
+      "Bash(curl:*)",
+      "Bash(colima start:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

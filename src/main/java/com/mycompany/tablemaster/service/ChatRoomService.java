@@ -6,6 +6,7 @@ import com.mycompany.tablemaster.event.ChatEvent;
 import com.mycompany.tablemaster.exception.BusinessException;
 import com.mycompany.tablemaster.messaging.producer.ChatEventProducer;
 import com.mycompany.tablemaster.repository.*;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -16,6 +17,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,13 +34,21 @@ public class ChatRoomService {
     private final StaffChatReadPositionRepository staffChatReadPositionRepository;
     private final TableRepository tableRepository;
     private final ChatMessageService chatMessageService;
+    private final ChatModerationHistoryService chatModerationHistoryService;
     private final WebSocketSenderService webSocketSenderService;
     private final ChatEventProducer chatEventProducer;
     private final StringRedisTemplate redisTemplate;
+    private final EntityManager entityManager;
+    private final AnalyticsLogService analyticsLogService;
 
     @Transactional(readOnly = true)
     public boolean hasActiveRoomBetween(String deviceId1, String deviceId2) {
         return chatRoomParticipantRepository.existsActiveRoomBetween(deviceId1, deviceId2);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ChatRoom> findReusableRoomBetween(String deviceId1, String deviceId2) {
+        return chatRoomRepository.findReusableRoomBetween(deviceId1, deviceId2);
     }
 
     @Transactional
@@ -95,6 +105,8 @@ public class ChatRoomService {
                 )
         ));
 
+        analyticsLogService.logChatRoomCreated(chatRoom, deviceId1, deviceId2);
+
         log.info("Chat room created: roomId={}, {} ↔ {}", chatRoom.getId(), tableName1, tableName2);
         return chatRoom;
     }
@@ -110,18 +122,18 @@ public class ChatRoomService {
 
         List<ChatRoomParticipant> participants = chatRoomParticipantRepository.findByChatRoomId(roomId);
 
-        // 참여자 테이블 상태 복원 + 상대방에게 알림
-        for (ChatRoomParticipant p : participants) {
-            if (chatRoomParticipantRepository.countActiveRoomsByDeviceId(p.getDeviceId()) == 0) {
-                tableRepository.findById(p.getDeviceId()).ifPresent(table -> {
-                    table.endChatting();
-                    TableEntity saved = tableRepository.save(table);
-                    broadcastTableUpdated(saved);
-                });
-            }
+        // 삭제 전에 필요한 정보 추출 (벌크 삭제 후 엔티티 참조하면 flush 에러 발생)
+        List<String> deviceIds = participants.stream()
+                .map(ChatRoomParticipant::getDeviceId)
+                .toList();
+        String participantNames = participants.stream()
+                .map(p -> p.getTableName() + "(" + p.getDeviceId() + ")")
+                .collect(Collectors.joining(" ↔ "));
 
-            if (!p.getDeviceId().equals(leavingDeviceId)) {
-                webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
+        // 상대방에게 알림
+        for (String deviceId : deviceIds) {
+            if (!deviceId.equals(leavingDeviceId)) {
+                webSocketSenderService.sendChatToDevice(deviceId, Map.of(
                         "type", "CHAT_CLOSED",
                         "roomId", roomId,
                         "reason", "PARTICIPANT_LEFT"
@@ -136,10 +148,6 @@ public class ChatRoomService {
         ));
 
         // 히스토리로 아카이브
-        String participantNames = participants.stream()
-                .map(p -> p.getTableName() + "(" + p.getDeviceId() + ")")
-                .collect(Collectors.joining(" ↔ "));
-
         chatRoomHistoryRepository.save(ChatRoomHistory.builder()
                 .roomId(roomId)
                 .participants(participantNames)
@@ -152,12 +160,23 @@ public class ChatRoomService {
                 .deleteReason("PARTICIPANT_LEFT")
                 .build());
 
-        // DB 삭제: 메시지 → 신고 → 읽기위치 → 참여자 → 방
-        chatMessageRepository.deleteByChatRoomId(roomId);
-        chatReportRepository.deleteByChatRoomId(roomId);
-        staffChatReadPositionRepository.deleteByChatRoomId(roomId);
-        chatRoomParticipantRepository.deleteByChatRoomId(roomId);
-        chatRoomRepository.delete(chatRoom);
+        analyticsLogService.logChatRoomClosed(
+                chatRoom,
+                leavingDeviceId,
+                deviceIds.stream().filter(id -> !id.equals(leavingDeviceId)).findFirst().orElse(null),
+                "PARTICIPANT_LEFT"
+        );
+
+        // persistence context 정리 후 벌크 삭제 (managed 엔티티 참조 충돌 방지)
+        entityManager.flush();
+        entityManager.clear();
+
+        purgeRoomData(roomId);
+
+        // 참여자 테이블 상태 복원 (삭제 후 카운트해야 현재 방이 제외됨)
+        for (String deviceId : deviceIds) {
+            restoreTableChatStateIfIdle(deviceId);
+        }
 
         log.info("Chat room closed and archived: roomId={}, leavingDeviceId={}", roomId, leavingDeviceId);
     }
@@ -227,6 +246,10 @@ public class ChatRoomService {
                 "reason", "WARNING"
         ));
 
+        chatModerationHistoryService.recordRoomSanction(
+                chatRoom, participants, userId, ChatModerationActionType.WARNING, reason, null
+        );
+
         log.info("Chat room warned: roomId={}, by userId={}", roomId, userId);
     }
 
@@ -269,6 +292,10 @@ public class ChatRoomService {
                 "reason", "MUTE"
         ));
 
+        chatModerationHistoryService.recordRoomSanction(
+                chatRoom, participants, userId, ChatModerationActionType.MUTE, reason, durationMinutes
+        );
+
         log.info("Chat room muted: roomId={}, by userId={}, duration={}min", roomId, userId, durationMinutes);
     }
 
@@ -278,6 +305,7 @@ public class ChatRoomService {
                 ? LocalDateTime.now().plusMinutes(durationMinutes) : null;
 
         chatRoom.sanction(SanctionType.BAN, reason, expiresAt);
+        chatRoomRepository.save(chatRoom);
 
         String durationText = durationMinutes != null ? " (" + durationMinutes + "분)" : "";
         String systemMsg = reason != null && !reason.isBlank()
@@ -286,14 +314,6 @@ public class ChatRoomService {
         chatMessageService.saveSystemMessage(chatRoom, systemMsg);
 
         for (ChatRoomParticipant p : participants) {
-            if (chatRoomParticipantRepository.countActiveRoomsByDeviceId(p.getDeviceId()) == 0) {
-                tableRepository.findById(p.getDeviceId()).ifPresent(table -> {
-                    table.endChatting();
-                    TableEntity saved = tableRepository.save(table);
-                    broadcastTableUpdated(saved);
-                });
-            }
-
             webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
                     "type", "CHAT_SANCTIONED",
                     "roomId", roomId,
@@ -301,6 +321,11 @@ public class ChatRoomService {
                     "reason", reason != null ? reason : "",
                     "expiresAt", expiresAt != null ? expiresAt.toString() : ""
             ));
+        }
+
+        // BAN 후 ACTIVE 방이 없으면 채팅중 상태 해제 (상태 변경 flush 이후 카운트)
+        for (ChatRoomParticipant p : participants) {
+            restoreTableChatStateIfIdle(p.getDeviceId());
         }
 
         if (durationMinutes != null) {
@@ -317,11 +342,20 @@ public class ChatRoomService {
                 "reason", "BAN"
         ));
 
+        chatModerationHistoryService.recordRoomSanction(
+                chatRoom, participants, userId, ChatModerationActionType.BAN, reason, durationMinutes
+        );
+
         log.info("Chat room banned: roomId={}, by userId={}, duration={}min", roomId, userId, durationMinutes);
     }
 
     @Transactional
     public void liftSanction(Long roomId) {
+        liftSanction(roomId, null);
+    }
+
+    @Transactional
+    public void liftSanction(Long roomId, Long userId) {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(BusinessException::chatRoomNotFound);
 
@@ -359,6 +393,8 @@ public class ChatRoomService {
                 "type", "ROOM_SANCTION_LIFTED",
                 "roomId", roomId
         ));
+
+        chatModerationHistoryService.recordSanctionLift(chatRoom, participants, userId, previousType);
 
         log.info("Sanction lifted: roomId={}, previousType={}", roomId, previousType);
     }
@@ -413,11 +449,16 @@ public class ChatRoomService {
 
         List<ChatRoomParticipant> participants = chatRoomParticipantRepository.findByChatRoomId(roomId);
 
-        // 히스토리 저장
+        // 삭제 전에 필요한 정보 추출 (벌크 삭제 후 엔티티 참조하면 flush 에러 발생)
+        List<String> deviceIds = participants.stream()
+                .map(ChatRoomParticipant::getDeviceId)
+                .toList();
         String participantNames = participants.stream()
                 .map(p -> p.getTableName() + "(" + p.getDeviceId() + ")")
                 .collect(Collectors.joining(" ↔ "));
+        boolean wasActive = room.getStatus() == ChatRoomStatus.ACTIVE;
 
+        // 히스토리 저장
         chatRoomHistoryRepository.save(ChatRoomHistory.builder()
                 .roomId(roomId)
                 .participants(participantNames)
@@ -432,32 +473,25 @@ public class ChatRoomService {
                 .deleteReason(deleteReason)
                 .build());
 
+        // persistence context 정리 후 벌크 삭제 (managed 엔티티 참조 충돌 방지)
+        entityManager.flush();
+        entityManager.clear();
+
+        purgeRoomData(roomId);
+
         // 참여자 테이블 상태 복원 (삭제 트리거 디바이스 제외)
-        if (room.getStatus() == ChatRoomStatus.ACTIVE) {
-            for (ChatRoomParticipant p : participants) {
-                if (!p.getDeviceId().equals(triggerDeviceId)) {
-                    webSocketSenderService.sendChatToDevice(p.getDeviceId(), Map.of(
+        if (wasActive || room.getStatus() == ChatRoomStatus.SANCTIONED) {
+            for (String deviceId : deviceIds) {
+                if (!deviceId.equals(triggerDeviceId)) {
+                    webSocketSenderService.sendChatToDevice(deviceId, Map.of(
                             "type", "CHAT_CLOSED",
                             "roomId", roomId,
                             "reason", "PARTICIPANT_DELETED"
                     ));
-                    if (chatRoomParticipantRepository.countActiveRoomsByDeviceId(p.getDeviceId()) <= 1) {
-                        tableRepository.findById(p.getDeviceId()).ifPresent(table -> {
-                            table.endChatting();
-                            TableEntity saved = tableRepository.save(table);
-                            broadcastTableUpdated(saved);
-                        });
-                    }
                 }
+                restoreTableChatStateIfIdle(deviceId);
             }
         }
-
-        // 삭제 순서: 메시지 → 신고 → 읽기위치 → 참여자 → 방
-        chatMessageRepository.deleteByChatRoomId(roomId);
-        chatReportRepository.deleteByChatRoomId(roomId);
-        staffChatReadPositionRepository.deleteByChatRoomId(roomId);
-        chatRoomParticipantRepository.deleteByChatRoomId(roomId);
-        chatRoomRepository.delete(room);
 
         log.info("Chat room deleted and archived: roomId={}, reason={}", roomId, deleteReason);
     }
@@ -569,5 +603,25 @@ public class ChatRoomService {
                 "data", data,
                 "timestamp", java.time.LocalDateTime.now().toString()
         ));
+    }
+
+    private void purgeRoomData(Long roomId) {
+        chatMessageRepository.deleteByChatRoomId(roomId);
+        chatReportRepository.deleteByChatRoomId(roomId);
+        staffChatReadPositionRepository.deleteByChatRoomId(roomId);
+        chatRoomParticipantRepository.deleteByChatRoomId(roomId);
+        entityManager.flush();
+        chatRoomRepository.deleteByRoomId(roomId);
+        entityManager.flush();
+    }
+
+    private void restoreTableChatStateIfIdle(String deviceId) {
+        if (chatRoomParticipantRepository.countActiveOrSanctionedRoomsByDeviceId(deviceId) == 0) {
+            tableRepository.findById(deviceId).ifPresent(table -> {
+                table.endChatting();
+                TableEntity saved = tableRepository.save(table);
+                broadcastTableUpdated(saved);
+            });
+        }
     }
 }

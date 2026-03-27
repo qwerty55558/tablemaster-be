@@ -140,8 +140,9 @@ public class StaffChatController {
      * DELETE /api/v1/staff/chat/rooms/{id}/sanction
      */
     @DeleteMapping("/rooms/{id}/sanction")
-    public ResponseEntity<Void> liftSanction(@PathVariable Long id) {
-        chatRoomService.liftSanction(id);
+    public ResponseEntity<Void> liftSanction(@PathVariable Long id,
+                                             @AuthenticationPrincipal UserAuthPrincipal principal) {
+        chatRoomService.liftSanction(id, principal.getUserId());
         return ResponseEntity.ok().build();
     }
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#2f2a17"/>
+  <path d="M235 100h130v52c0 44-29 81-65 90-36-9-65-46-65-90z" fill="#efe2a3"/>
+  <rect x="292" y="240" width="16" height="66" fill="#f7f2dc"/>
+  <rect x="255" y="306" width="90" height="12" rx="6" fill="#f7f2dc"/>
+  <text x="300" y="360" font-family="Verdana, sans-serif" font-size="34" fill="#fff7d1" text-anchor="middle">WHITE WINE</text>
+</svg>

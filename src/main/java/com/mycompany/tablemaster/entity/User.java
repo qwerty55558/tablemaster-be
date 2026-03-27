@@ -35,6 +35,18 @@ public class User {
     @Column(nullable = false)
     private String phone;
 
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
+    @Column(name = "email_notification_enabled", nullable = false)
+    private Boolean emailNotificationEnabled = true;
+
+    @Column(name = "push_notification_enabled", nullable = false)
+    private Boolean pushNotificationEnabled = true;
+
+    @Column(name = "marketing_notification_enabled", nullable = false)
+    private Boolean marketingNotificationEnabled = false;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -62,11 +74,17 @@ public class User {
     }
 
     @Builder
-    public User(String email, String password, String name, String phone) {
+    public User(String email, String password, String name, String phone,
+                String profileImageUrl, Boolean emailNotificationEnabled,
+                Boolean pushNotificationEnabled, Boolean marketingNotificationEnabled) {
         this.email = email;
         this.password = password;
         this.name = name;
         this.phone = phone;
+        this.profileImageUrl = profileImageUrl;
+        this.emailNotificationEnabled = emailNotificationEnabled != null ? emailNotificationEnabled : true;
+        this.pushNotificationEnabled = pushNotificationEnabled != null ? pushNotificationEnabled : true;
+        this.marketingNotificationEnabled = marketingNotificationEnabled != null ? marketingNotificationEnabled : false;
         this.roles.add(Role.ROLE_STAFF);  // 기본 역할: STAFF
     }
 
@@ -96,5 +114,25 @@ public class User {
      */
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    public void updateProfile(String name, String phone, String profileImageUrl) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (phone != null) {
+            this.phone = phone;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
+    }
+
+    public void updateNotificationSettings(Boolean emailNotificationEnabled,
+                                           Boolean pushNotificationEnabled,
+                                           Boolean marketingNotificationEnabled) {
+        this.emailNotificationEnabled = emailNotificationEnabled;
+        this.pushNotificationEnabled = pushNotificationEnabled;
+        this.marketingNotificationEnabled = marketingNotificationEnabled;
     }
 }

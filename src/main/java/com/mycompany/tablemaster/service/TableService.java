@@ -9,11 +9,13 @@ import com.mycompany.tablemaster.dto.table.TableSetupRequest;
 import com.mycompany.tablemaster.dto.table.TableSetupResponse;
 import com.mycompany.tablemaster.dto.table.TableUpdateRequest;
 import com.mycompany.tablemaster.entity.DeviceWhitelist;
+import com.mycompany.tablemaster.entity.BillStatus;
 import com.mycompany.tablemaster.repository.DeviceWhitelistRepository;
 import com.mycompany.tablemaster.entity.TableEntity;
 import com.mycompany.tablemaster.entity.TableHistory;
 import com.mycompany.tablemaster.entity.TableStatus;
 import com.mycompany.tablemaster.exception.BusinessException;
+import com.mycompany.tablemaster.repository.BillRepository;
 import com.mycompany.tablemaster.repository.TableHistoryRepository;
 import com.mycompany.tablemaster.repository.TableRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,8 +41,10 @@ public class TableService {
     private final TableRepository tableRepository;
     private final TableHistoryRepository tableHistoryRepository;
     private final DeviceWhitelistRepository deviceWhitelistRepository;
+    private final BillRepository billRepository;
     private final WebSocketSenderService webSocketSenderService;
     private final ChatRoomService chatRoomService;
+    private final AnalyticsLogService analyticsLogService;
 
     /**
      * 모든 테이블 조회 (AVAILABLE, DELETED 제외 / INACTIVE 포함)
@@ -65,20 +70,35 @@ public class TableService {
      */
     public TableHistoryListResponse getTableHistory(TableHistoryRequest request) {
         LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
-        Pageable pageable = Pageable.ofSize(request.getLimit())
-                .withPage(request.getOffset() / Math.max(request.getLimit(), 1));
+        int safeOffset = Math.max(request.getOffset(), 0);
+        int safeLimit = Math.max(request.getLimit(), 1);
 
-        Page<TableHistory> page = tableHistoryRepository
-                .findByDeletedAtAfterOrderByDeletedAtDesc(thirtyDaysAgo, pageable);
+        List<TableHistoryResponse> histories = tableHistoryRepository.findByDeletedAtAfterOrderByDeletedAtDesc(thirtyDaysAgo)
+                .stream()
+                .map(TableHistoryResponse::from)
+                .toList();
+
+        List<TableHistoryResponse> activeTables = tableRepository
+                .findByStatusNotIn(List.of(TableStatus.AVAILABLE, TableStatus.DELETED))
+                .stream()
+                .filter(table -> table.getCreatedAt() != null && !table.getCreatedAt().isBefore(thirtyDaysAgo))
+                .map(TableHistoryResponse::from)
+                .toList();
+
+        List<TableHistoryResponse> merged = java.util.stream.Stream.concat(histories.stream(), activeTables.stream())
+                .sorted(Comparator.comparing(TableHistoryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+
+        int fromIndex = Math.min(safeOffset, merged.size());
+        int toIndex = Math.min(fromIndex + safeLimit, merged.size());
+        List<TableHistoryResponse> content = merged.subList(fromIndex, toIndex);
 
         return TableHistoryListResponse.builder()
-                .content(page.getContent().stream()
-                        .map(TableHistoryResponse::from)
-                        .collect(Collectors.toList()))
-                .totalCount(page.getTotalElements())
-                .offset(request.getOffset())
-                .limit(request.getLimit())
-                .hasNext(request.getOffset() + request.getLimit() < page.getTotalElements())
+                .content(content)
+                .totalCount(merged.size())
+                .offset(safeOffset)
+                .limit(safeLimit)
+                .hasNext(toIndex < merged.size())
                 .build();
     }
 
@@ -178,6 +198,7 @@ public class TableService {
 
         TableEntity savedTable = tableRepository.save(table);
         log.info("Table setup completed: id={}, name={}", savedTable.getId(), savedTable.getName());
+        analyticsLogService.logVisitorEntry(savedTable);
 
         // 웹 브로드캐스트
         broadcastTableAdded(savedTable);
@@ -189,16 +210,15 @@ public class TableService {
      * 테이블 삭제 (히스토리로 이동 후 삭제)
      */
     @Transactional
-    public void deleteTable(String deviceId) {
-        TableEntity table = tableRepository.findById(deviceId)
-                .orElseThrow(() -> new BusinessException(
-                        "테이블을 찾을 수 없습니다: " + deviceId,
-                        HttpStatus.NOT_FOUND,
-                        "TABLE_001"
-                ));
+    public void deleteTable(String identifier) {
+        TableEntity table = resolveTableByIdentifier(identifier);
+        String deviceId = table.getId();
+
+        validateNoOpenBill(deviceId);
 
         // 채팅 데이터 로그 후 삭제
         chatRoomService.cleanupByDeviceId(deviceId);
+        analyticsLogService.logVisitorExit(table, "TABLE_DELETED");
 
         // 히스토리에 저장
         tableHistoryRepository.save(TableHistory.from(table));
@@ -210,6 +230,33 @@ public class TableService {
 
         // 브로드캐스트
         broadcastTableRemoved(deviceId);
+    }
+
+    private TableEntity resolveTableByIdentifier(String identifier) {
+        return tableRepository.findById(identifier)
+                .orElseGet(() -> {
+                    List<TableEntity> matchedTables = tableRepository.findByName(identifier).stream()
+                            .filter(table -> table.getStatus() != TableStatus.DELETED)
+                            .toList();
+
+                    if (matchedTables.isEmpty()) {
+                        throw new BusinessException(
+                                "테이블을 찾을 수 없습니다: " + identifier,
+                                HttpStatus.NOT_FOUND,
+                                "TABLE_001"
+                        );
+                    }
+
+                    if (matchedTables.size() > 1) {
+                        throw new BusinessException(
+                                "동일한 테이블명이 여러 건 존재합니다. deviceId로 요청해주세요: " + identifier,
+                                HttpStatus.BAD_REQUEST,
+                                "TABLE_006"
+                        );
+                    }
+
+                    return matchedTables.get(0);
+                });
     }
 
     /**
@@ -255,6 +302,7 @@ public class TableService {
 
         TableEntity savedTable = tableRepository.save(table);
         log.info("Table updated: id={}", savedTable.getId());
+        analyticsLogService.logVisitorUpdate(savedTable);
 
         // 웹 브로드캐스트
         broadcastTableUpdated(savedTable);
@@ -278,8 +326,12 @@ public class TableService {
     public void markTableDeleted(String deviceId) {
         tableRepository.findById(deviceId).ifPresent(table -> {
             if (table.getStatus() != TableStatus.DELETED) {
+                validateNoOpenBill(deviceId);
+
                 // 채팅 데이터 히스토리 저장 후 삭제
                 chatRoomService.cleanupByDeviceId(deviceId);
+
+                analyticsLogService.logVisitorExit(table, "DEVICE_DELETED");
 
                 // AVAILABLE 상태가 아닌 경우(손님이 있는 경우)만 히스토리 저장
                 if (table.getStatus() != TableStatus.AVAILABLE) {
@@ -365,6 +417,7 @@ public class TableService {
         tableRepository.findById(deviceId).ifPresent(table -> {
             if (!table.isActive()) {
                 chatRoomService.cleanupByDeviceId(deviceId);
+                analyticsLogService.logVisitorExit(table, "INACTIVE_TTL_EXPIRED");
                 tableHistoryRepository.save(TableHistory.from(table));
                 tableRepository.delete(table);
                 log.info("Inactive table removed after TTL: deviceId={}", deviceId);
@@ -384,6 +437,7 @@ public class TableService {
                 table.activate();
                 TableEntity savedTable = tableRepository.save(table);
                 log.info("Table activated due to device reconnect: deviceId={}", deviceId);
+                analyticsLogService.logVisitorReconnect(savedTable);
 
                 if (savedTable.getStatus() == TableStatus.AVAILABLE) {
                     // AVAILABLE로 복원된 경우 대시보드에 노출하지 않음
@@ -393,5 +447,11 @@ public class TableService {
                 broadcastTableUpdated(savedTable);
             }
         });
+    }
+
+    private void validateNoOpenBill(String deviceId) {
+        if (billRepository.findByDeviceIdAndStatus(deviceId, BillStatus.OPEN).isPresent()) {
+            throw BusinessException.tableHasOpenBill();
+        }
     }
 }

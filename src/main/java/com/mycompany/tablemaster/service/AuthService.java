@@ -67,6 +67,7 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
                 .phone(normalizePhone(request.getPhone()))
+                .marketingNotificationEnabled(Boolean.TRUE.equals(request.getAgreeMarketing()))
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -173,6 +174,41 @@ public class AuthService {
                 refreshToken,
                 jwtTokenProvider.getAccessTokenExpirationInSeconds()
         );
+    }
+
+    public ProfileResponse getProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(BusinessException::userNotFound);
+        return ProfileResponse.from(user);
+    }
+
+    @Transactional
+    public ProfileResponse updateProfile(Long userId, ProfileUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(BusinessException::userNotFound);
+
+        if (request.getName() != null) {
+            validateProfileName(request.getName());
+        }
+
+        String normalizedPhone = request.getPhone() != null ? normalizePhone(request.getPhone()) : null;
+        user.updateProfile(request.getName(), normalizedPhone, request.getProfileImageUrl());
+
+        return ProfileResponse.from(user);
+    }
+
+    @Transactional
+    public ProfileResponse updateNotificationSettings(Long userId, NotificationSettingsUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(BusinessException::userNotFound);
+
+        user.updateNotificationSettings(
+                request.getEmailNotificationEnabled(),
+                request.getPushNotificationEnabled(),
+                request.getMarketingNotificationEnabled()
+        );
+
+        return ProfileResponse.from(user);
     }
 
     /**
@@ -374,6 +410,13 @@ public class AuthService {
         }
         if (passwordConfig.isRequireSpecialChar() && !password.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) {
             throw BusinessException.passwordRequiresSpecialChar();
+        }
+    }
+
+    private void validateProfileName(String name) {
+        var nameConfig = validationProperties.getName();
+        if (name.length() < nameConfig.getMinLength() || name.length() > nameConfig.getMaxLength()) {
+            throw BusinessException.invalidNameLength(nameConfig.getMinLength(), nameConfig.getMaxLength());
         }
     }
 

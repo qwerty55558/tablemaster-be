@@ -37,6 +37,9 @@ public class Bill {
     @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
+    @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<GiftOrder> giftOrders = new ArrayList<>();
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -70,6 +73,12 @@ public class Bill {
         recalculateTotal();
     }
 
+    public void addGiftOrder(GiftOrder giftOrder) {
+        giftOrders.add(giftOrder);
+        giftOrder.setBill(this);
+        recalculateTotal();
+    }
+
     public void close() {
         this.status = BillStatus.CLOSED;
         this.closedAt = LocalDateTime.now();
@@ -80,8 +89,12 @@ public class Bill {
     }
 
     public void recalculateTotal() {
-        this.totalAmount = orderItems.stream()
+        long orderTotal = orderItems.stream()
                 .mapToLong(item -> (long) item.getPrice() * item.getQuantity())
                 .sum();
+        long giftTotal = giftOrders.stream()
+                .mapToLong(item -> (long) item.getPrice() * item.getQuantity())
+                .sum();
+        this.totalAmount = orderTotal + giftTotal;
     }
 }

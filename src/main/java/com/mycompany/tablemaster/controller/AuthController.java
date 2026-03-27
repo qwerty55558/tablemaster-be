@@ -167,6 +167,32 @@ public class AuthController {
         ));
     }
 
+    @GetMapping("/me")
+    @Operation(summary = "내 프로필 조회", description = "현재 로그인한 사용자의 프로필 및 알림 설정 조회")
+    public ResponseEntity<ProfileResponse> getProfile(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(authService.getProfile(userId));
+    }
+
+    @PatchMapping("/profile")
+    @Operation(summary = "프로필 수정", description = "이름, 전화번호, 프로필 이미지 URL 수정")
+    public ResponseEntity<ProfileResponse> updateProfile(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody ProfileUpdateRequest request
+    ) {
+        return ResponseEntity.ok(authService.updateProfile(userId, request));
+    }
+
+    @PatchMapping("/notification-settings")
+    @Operation(summary = "알림 설정 수정", description = "이메일/푸시/마케팅 알림 설정 저장")
+    public ResponseEntity<ProfileResponse> updateNotificationSettings(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody NotificationSettingsUpdateRequest request
+    ) {
+        return ResponseEntity.ok(authService.updateNotificationSettings(userId, request));
+    }
+
     /**
      * Authorization 헤더에서 Access Token 추출
      */

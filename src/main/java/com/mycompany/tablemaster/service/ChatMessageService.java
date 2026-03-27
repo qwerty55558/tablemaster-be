@@ -2,6 +2,7 @@ package com.mycompany.tablemaster.service;
 
 import com.mycompany.tablemaster.entity.*;
 import com.mycompany.tablemaster.event.ChatEvent;
+import com.mycompany.tablemaster.repository.ChatRoomRepository;
 import com.mycompany.tablemaster.repository.ChatMessageRepository;
 import com.mycompany.tablemaster.repository.StaffChatReadPositionRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRepository chatRoomRepository;
     private final StaffChatReadPositionRepository staffChatReadPositionRepository;
+    private final AnalyticsLogService analyticsLogService;
 
     @Transactional
     public ChatMessage saveMessage(ChatRoom chatRoom, ChatEvent event) {
@@ -33,10 +36,12 @@ public class ChatMessageService {
 
         ChatMessage saved = chatMessageRepository.save(message);
 
-        chatRoom.incrementMessageCount();
+        chatRoomRepository.incrementMessageCount(chatRoom.getId());
         if (messageType == ChatMessageType.GIFT) {
-            chatRoom.incrementGiftCount();
+            chatRoomRepository.incrementGiftCount(chatRoom.getId());
         }
+
+        analyticsLogService.logChatMessage(chatRoom, saved);
 
         log.info("Chat message saved: roomId={}, messageId={}, type={}", chatRoom.getId(), saved.getId(), messageType);
         return saved;
@@ -51,7 +56,7 @@ public class ChatMessageService {
                 .build();
 
         ChatMessage saved = chatMessageRepository.save(message);
-        chatRoom.incrementMessageCount();
+        chatRoomRepository.incrementMessageCount(chatRoom.getId());
         log.info("System message saved: roomId={}, messageId={}", chatRoom.getId(), saved.getId());
         return saved;
     }

@@ -26,8 +26,14 @@ public class ChatReport {
     @Column(name = "reporter_device_id", nullable = false)
     private String reporterDeviceId;
 
+    @Column(name = "reporter_table_name")
+    private String reporterTableName;
+
     @Column(name = "reported_device_id", nullable = false)
     private String reportedDeviceId;
+
+    @Column(name = "reported_table_name")
+    private String reportedTableName;
 
     @Column(nullable = false)
     private String reason;
@@ -39,6 +45,9 @@ public class ChatReport {
     @Column(name = "reviewed_by")
     private Long reviewedBy;
 
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -48,11 +57,13 @@ public class ChatReport {
     }
 
     @Builder
-    public ChatReport(ChatRoom chatRoom, String reporterDeviceId, String reportedDeviceId,
-                      String reason) {
+    public ChatReport(ChatRoom chatRoom, String reporterDeviceId, String reporterTableName,
+                      String reportedDeviceId, String reportedTableName, String reason) {
         this.chatRoom = chatRoom;
         this.reporterDeviceId = reporterDeviceId;
+        this.reporterTableName = reporterTableName;
         this.reportedDeviceId = reportedDeviceId;
+        this.reportedTableName = reportedTableName;
         this.reason = reason;
         this.status = ChatReportStatus.PENDING;
     }
@@ -60,5 +71,6 @@ public class ChatReport {
     public void review(Long userId, ChatReportStatus status) {
         this.reviewedBy = userId;
         this.status = status;
+        this.reviewedAt = LocalDateTime.now();
     }
 }

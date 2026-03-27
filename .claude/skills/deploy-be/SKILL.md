@@ -43,4 +43,5 @@ docker buildx build --platform linux/amd64 \
 ## Notes
 - Spring Boot 멀티스테이지 Dockerfile을 그대로 사용하며, build-arg는 불필요.
 - colima 부스트 메모리는 16GB 고정.
-- 빌드 후 colima 원복이나 builder 정리는 사용자가 직접 수행한다.
+- 빌드 후 colima 원상 복구는 사용자가 직접 수행한다.
+- 빌더는 정리한다

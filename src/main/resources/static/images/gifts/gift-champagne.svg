@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#2f2438"/>
+  <rect x="255" y="90" width="90" height="210" rx="24" fill="#f1d58b"/>
+  <rect x="270" y="70" width="60" height="40" rx="8" fill="#e6b24d"/>
+  <circle cx="285" cy="60" r="10" fill="#fff2c2"/>
+  <circle cx="315" cy="44" r="14" fill="#fff2c2"/>
+  <circle cx="345" cy="28" r="10" fill="#fff2c2"/>
+  <text x="300" y="360" font-family="Verdana, sans-serif" font-size="30" fill="#f8efd1" text-anchor="middle">CHAMPAGNE</text>
+</svg>

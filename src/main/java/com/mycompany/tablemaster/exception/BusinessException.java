@@ -149,7 +149,39 @@ public class BusinessException extends RuntimeException {
         return new BusinessException("이미 상대방과 진행 중인 채팅방이 있습니다", HttpStatus.CONFLICT, "CHAT_008");
     }
 
+    public static BusinessException chatModerationHistoryNotFound() {
+        return new BusinessException("제재 이력을 찾을 수 없습니다", HttpStatus.NOT_FOUND, "CHAT_009");
+    }
+
+    public static BusinessException forbiddenWordAlreadyExists() {
+        return new BusinessException("이미 등록된 금칙어입니다", HttpStatus.CONFLICT, "CHAT_010");
+    }
+
+    public static BusinessException forbiddenWordNotFound() {
+        return new BusinessException("금칙어를 찾을 수 없습니다", HttpStatus.NOT_FOUND, "CHAT_011");
+    }
+
+    public static BusinessException forbiddenWordDetected(String word) {
+        return new BusinessException("금칙어가 포함되어 전송할 수 없습니다: " + word, HttpStatus.BAD_REQUEST, "CHAT_012");
+    }
+
+    public static BusinessException chatReportSelfNotAllowed() {
+        return new BusinessException("자기 자신은 신고할 수 없습니다", HttpStatus.BAD_REQUEST, "CHAT_013");
+    }
+
+    public static BusinessException chatReportParticipantMismatch() {
+        return new BusinessException("해당 채팅방 참여자만 신고할 수 있습니다", HttpStatus.BAD_REQUEST, "CHAT_014");
+    }
+
+    public static BusinessException chatReportAlreadyPending() {
+        return new BusinessException("이미 처리 대기 중인 신고가 있습니다", HttpStatus.CONFLICT, "CHAT_015");
+    }
+
     public static BusinessException tableNotFound() {
         return new BusinessException("테이블을 찾을 수 없습니다", HttpStatus.NOT_FOUND, "TABLE_001");
+    }
+
+    public static BusinessException tableHasOpenBill() {
+        return new BusinessException("미정산 주문이 있어 테이블을 삭제할 수 없습니다", HttpStatus.CONFLICT, "TABLE_007");
     }
 }

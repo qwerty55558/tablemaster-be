@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#12343b"/>
+  <ellipse cx="300" cy="220" rx="170" ry="95" fill="#f8d39b"/>
+  <path d="M215 210c35-55 95-85 170-60-30 42-88 75-170 60z" fill="#ff8f66"/>
+  <circle cx="260" cy="195" r="8" fill="#1d1d1d"/>
+  <path d="M325 185c50-28 105-16 120 18-46 18-90 20-120-18z" fill="#9ad1d4"/>
+  <text x="300" y="355" font-family="Verdana, sans-serif" font-size="34" fill="#d7f2f4" text-anchor="middle">SEAFOOD</text>
+</svg>

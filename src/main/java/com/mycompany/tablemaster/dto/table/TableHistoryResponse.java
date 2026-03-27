@@ -1,6 +1,7 @@
 package com.mycompany.tablemaster.dto.table;
 
 import com.mycompany.tablemaster.entity.TableHistory;
+import com.mycompany.tablemaster.entity.TableEntity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
@@ -58,6 +59,22 @@ public class TableHistoryResponse {
                 .revenue(history.getRevenue())
                 .createdAt(history.getCreatedAt())
                 .deletedAt(history.getDeletedAt())
+                .build();
+    }
+
+    public static TableHistoryResponse from(TableEntity table) {
+        return TableHistoryResponse.builder()
+                .id(null)
+                .deviceId(table.getId())
+                .name(table.getName())
+                .deviceName(table.getDeviceName())
+                .location(table.getLocation())
+                .guestCount(table.getGuestCount())
+                .femaleCount(table.getFemaleCount())
+                .maleCount(table.getMaleCount())
+                .revenue(table.getRevenue())
+                .createdAt(table.getCreatedAt())
+                .deletedAt(null)
                 .build();
     }
 }

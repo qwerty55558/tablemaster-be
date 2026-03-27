@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#2b1d14"/>
+  <circle cx="300" cy="200" r="150" fill="#f6c26b"/>
+  <circle cx="250" cy="175" r="44" fill="#d08c3f"/>
+  <circle cx="340" cy="165" r="38" fill="#d08c3f"/>
+  <circle cx="285" cy="235" r="48" fill="#d08c3f"/>
+  <circle cx="365" cy="235" r="42" fill="#d08c3f"/>
+  <text x="300" y="355" font-family="Verdana, sans-serif" font-size="34" fill="#fff4d6" text-anchor="middle">FRIED</text>
+</svg>

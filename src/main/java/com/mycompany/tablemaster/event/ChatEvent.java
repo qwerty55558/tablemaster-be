@@ -19,7 +19,7 @@ public record ChatEvent(
     }
 
     public static ChatEvent gift(Long roomId, String senderDeviceId, String senderTableName, String giftType) {
-        return new ChatEvent(roomId, null, senderDeviceId, senderTableName, giftType, ChatEventType.MESSAGE, "GIFT", LocalDateTime.now());
+        return new ChatEvent(roomId, null, senderDeviceId, senderTableName, giftType, ChatEventType.GIFT, "GIFT", LocalDateTime.now());
     }
 
     public static ChatEvent join(Long roomId, String senderDeviceId, String senderTableName) {
