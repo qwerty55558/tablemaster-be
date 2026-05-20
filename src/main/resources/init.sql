@@ -190,6 +190,40 @@ CREATE INDEX IF NOT EXISTS idx_chat_analytics_event_logged_at
 CREATE INDEX IF NOT EXISTS idx_chat_analytics_room_logged_at
     ON chat_analytics_logs (chat_room_id, logged_at DESC);
 
+-- 데드레터(DLQ) 메시지 영속화
+CREATE TABLE IF NOT EXISTS dead_letter_messages (
+    id                   BIGSERIAL    PRIMARY KEY,
+    original_exchange    VARCHAR(255),
+    original_routing_key VARCHAR(255),
+    original_queue       VARCHAR(255),
+    death_reason         VARCHAR(100),
+    death_count          BIGINT,
+    first_failed_at      TIMESTAMP,
+    message_id           VARCHAR(255),
+    content_type         VARCHAR(100),
+    headers              TEXT,
+    payload              TEXT,
+    status               VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
+    logged_at            TIMESTAMP    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_dlq_status_logged_at
+    ON dead_letter_messages (status, logged_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dlq_queue_logged_at
+    ON dead_letter_messages (original_queue, logged_at DESC);
+
+-- 메시지 멱등 처리 이력 (재시도 시 중복 처리 차단)
+CREATE TABLE IF NOT EXISTS processed_messages (
+    id              BIGSERIAL    PRIMARY KEY,
+    idempotency_key VARCHAR(128) NOT NULL,
+    queue_name      VARCHAR(255),
+    processed_at    TIMESTAMP    NOT NULL,
+    CONSTRAINT uk_processed_messages_key UNIQUE (idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_processed_messages_processed_at
+    ON processed_messages (processed_at DESC);
+
 -- 채팅방 참여자
 CREATE TABLE IF NOT EXISTS chat_room_participants (
     id           BIGSERIAL    PRIMARY KEY,
